@@ -114,10 +114,12 @@ class LLM:
         model: str | None = None,
         max_tokens: int | None = None,
         effort: str | None = None,
+        output_config: dict | None = None,
         cache: bool = True,
         tag: str = "",
     ) -> str:
         """Send one user turn (after optional history) and return the reply text.
+        output_config is passed through to the API (e.g. a structured-output format).
         tag labels the call in the usage log, e.g. "resume.select"."""
         params = {
             "model": model or self.model,
@@ -132,8 +134,9 @@ class LLM:
             params["system"] = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
         if history:
             params["cache_control"] = {"type": "ephemeral"}
-        if effort:
-            params["output_config"] = {"effort": effort}
+        output_config = {**(output_config or {}), **({"effort": effort} if effort else {})}
+        if output_config:
+            params["output_config"] = output_config
 
         key = hashlib.sha256(json.dumps(params, sort_keys=True).encode()).hexdigest()
         cache_file = self.cache_dir / f"{key}.json"

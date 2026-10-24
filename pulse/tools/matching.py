@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import re
 from functools import lru_cache
+from typing import TypeVar
 
-from pydantic import BaseModel, Field
+import anthropic
+from pydantic import BaseModel, Field, ValidationError
 
-from pulse.llm import llm
+from pulse.llm import LLMError, llm
 from pulse.tools import latex
 from pulse.tools.linkedin import Job
 
@@ -56,22 +58,18 @@ Candidate resume:
 """
 
 
-def _ask(prompt: str, output_format: type[BaseModel]) -> BaseModel:
-    extra = {}
-    if not llm.model.startswith("claude-haiku"):  # Haiku has no server-side fallback
-        # retry safety-classifier declines on Anthropic's recommended fallback model
-        extra = {"extra_headers": {"anthropic-beta": "server-side-fallback-2026-07-01"},
-                 "extra_body": {"fallbacks": "default"}}
-    resp = llm.client.messages.parse(
-        model=llm.model,
-        max_tokens=llm.max_tokens,
-        messages=[{"role": "user", "content": prompt}],
-        output_format=output_format,
-        **extra,
-    )
-    if resp.parsed_output is None:
-        raise RuntimeError(f"no structured output from LLM (stop_reason={resp.stop_reason})")
-    return resp.parsed_output
+M = TypeVar("M", bound=BaseModel)
+
+
+def _parse(prompt: str, output_format: type[M], tag: str) -> M:
+    """Ask with the reply constrained to output_format's JSON schema, then validate into it."""
+    schema = anthropic.transform_schema(output_format.model_json_schema())
+    text = llm.complete(prompt, tag=tag,
+                        output_config={"format": {"type": "json_schema", "schema": schema}})
+    try:
+        return output_format.model_validate_json(text)
+    except ValidationError as e:
+        raise LLMError(f"{tag}: reply does not match {output_format.__name__}: {e}") from e
 
 
 @lru_cache
@@ -82,7 +80,7 @@ def resume_text() -> str:
 @lru_cache
 def generate_keywords() -> Keywords:
     """Generated once per process; the resume does not change between heartbeats."""
-    kw = _ask(KEYWORDS_PROMPT.format(resume=resume_text()), Keywords)
+    kw = _parse(KEYWORDS_PROMPT.format(resume=resume_text()), Keywords, "match.keywords")
     kw.include = [k.lower().strip() for k in kw.include if k.strip()]
     kw.exclude_title = [k.lower().strip() for k in kw.exclude_title if k.strip()]
     return kw
@@ -104,9 +102,9 @@ def keyword_hits(text: str, kw: Keywords) -> list[str]:
 
 
 def score_match(job: Job) -> Match:
-    m = _ask(SCORE_PROMPT.format(
+    m = _parse(SCORE_PROMPT.format(
         title=job.title, company=job.company, location=job.location,
         description=job.description, resume=resume_text(),
-    ), Match)
+    ), Match, "match.score")
     m.score = max(0, min(100, m.score))
     return m
