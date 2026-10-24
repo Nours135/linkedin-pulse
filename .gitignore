@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 .venv/
 pulse/tools/linkedin_results/
+uv.lock
