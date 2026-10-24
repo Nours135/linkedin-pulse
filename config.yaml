@@ -2,6 +2,10 @@ heartbeat_minutes: 30
 resume: assets/resume.json
 work_dir: work
 
+llm:
+  model: claude-haiku-5-5   # any Claude model id
+  max_tokens: 16000
+
 search:
   location: United States
   posted_within_hours: 24
