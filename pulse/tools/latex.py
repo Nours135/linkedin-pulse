@@ -1,1 +1,1 @@
-"""tool：用 assets/resume.tex.j2 渲染 LaTeX 并编译成 PDF。"""
+"""Tool: render assets/resume.tex.j2 to LaTeX and compile it to PDF."""

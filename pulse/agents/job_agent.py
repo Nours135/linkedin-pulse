@@ -1,1 +1,1 @@
-"""岗位轮训 agent：搜索 → 关键词粗筛 → 匹配度打分 → 按需 dispatch resume agent → 邮件。"""
+"""Job polling agent: search -> keyword pre-filter -> match scoring -> dispatch resume agent on demand -> email."""

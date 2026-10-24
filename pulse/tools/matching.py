@@ -1,1 +1,1 @@
-"""tool：由简历生成关键词、关键词粗筛、JD + resume 匹配度及 bullets 数量。"""
+"""Tool: generate keywords from the resume, keyword pre-filter, JD + resume match score and bullet count."""

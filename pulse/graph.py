@@ -1,1 +1,1 @@
-"""LangGraph 编排：entry node（判断是否有未处理新岗位）→ job agent → END。"""
+"""LangGraph wiring: entry node (any unprocessed new jobs?) -> job agent -> END."""

@@ -1,1 +1,1 @@
-"""读取 config.yaml / .env，提供 settings、work_dir、load_resume、llm。"""
+"""Load config.yaml / .env and expose settings, work_dir, load_resume and llm."""

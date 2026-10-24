@@ -1,4 +1,4 @@
-"""入口：Python 驱动的 heartbeat，每隔 config.heartbeat_minutes 跑一次 graph。"""
+"""Entry point: Python-driven heartbeat that runs the graph every config.heartbeat_minutes."""
 
 
 def main() -> None:

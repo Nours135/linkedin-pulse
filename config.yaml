@@ -8,4 +8,4 @@ search:
   max_jobs: 25
 
 match:
-  min_score: 70          # 低于该分数不生成简历/邮件
+  min_score: 70          # skip resume/email below this score

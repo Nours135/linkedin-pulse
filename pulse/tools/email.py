@@ -1,1 +1,1 @@
-"""tool：生成邮件内容，通过 SMTP 连同简历 PDF 发给自己。"""
+"""Tool: generate the email body and send it, with the resume PDF, to yourself via SMTP."""
