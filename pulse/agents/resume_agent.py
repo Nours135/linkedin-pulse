@@ -19,7 +19,7 @@ from langchain_core.tools import tool
 
 from pulse.llm import LLMError, image, llm, pdf
 from pulse.tools.latex import (
-    COMPONENTS_DIR, LAYOUTS, SECTIONS, WORK_DIR, compile_resume, load_index, pdf_to_png,
+    LAYOUTS, SECTIONS, WORK_DIR, compile_resume, format_catalog, load_index, pdf_to_png,
     validate_selection,
 )
 
@@ -91,28 +91,6 @@ Match result:
 Current selection: {selection}
 Selections already tried (do not return one of these): {tried}
 """
-
-
-def _bullets(key: str) -> list[str]:
-    """Bullet text of a component, with LaTeX escapes undone for readability."""
-    tex = (COMPONENTS_DIR / f"{key}.tex").read_text()
-    items = re.findall(r"\\resumeItem\{(.*)\}\s*$", tex, flags=re.MULTILINE)
-    return [re.sub(r"\\([%&$#_])", r"\1", item) for item in items]
-
-
-def format_catalog(index: dict | None = None) -> str:
-    """Every component with key, dates, directions and its full bullets, grouped by section."""
-    index = index or load_index()
-    lines = []
-    for section, title in SECTIONS.items():
-        lines.append(f"[{title}]")
-        for key, c in index["components"].items():
-            if c["section"] != section:
-                continue
-            lines.append(f"- {key} | {c['title']} | {c['start']} to {c['end']} | "
-                         f"directions: {', '.join(c['directions'])}")
-            lines.extend(f"    * {b}" for b in _bullets(key))
-    return "\n".join(lines)
 
 
 def system_prompt(index: dict | None = None) -> str:

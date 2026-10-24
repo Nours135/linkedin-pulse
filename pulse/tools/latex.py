@@ -24,12 +24,13 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from langchain_core.tools import tool
 
-ROOT = Path(__file__).resolve().parents[2]
+from pulse.config import ROOT, settings, work_dir
+
 ASSETS_DIR = ROOT / "assets"
 COMPONENTS_DIR = ASSETS_DIR / "components"
-INDEX_PATH = ASSETS_DIR / "resume.json"
+INDEX_PATH = ROOT / settings.get("resume", "assets/resume.json")
 TEMPLATE_NAME = "resume.tex.j2"
-WORK_DIR = ROOT / "work"
+WORK_DIR = work_dir
 
 SECTIONS = {"experience": "Experience", "projects": "Projects"}  # render order -> heading
 PDFLATEX_TIMEOUT = 60
@@ -64,6 +65,34 @@ def _component_tex(key: str) -> str:
     if not path.exists():
         raise ValueError(f"missing component file: {path.relative_to(ROOT)}")
     return path.read_text().rstrip()
+
+
+# ---- Plain-text views of the resume for LLM prompts ----
+
+def bullets(key: str) -> list[str]:
+    """Bullet text of a component, with LaTeX escapes undone for readability."""
+    items = re.findall(r"\\resumeItem\{(.*)\}\s*$", _component_tex(key), flags=re.MULTILINE)
+    return [re.sub(r"\\([%&$#_])", r"\1", item) for item in items]
+
+
+def format_catalog(index: dict | None = None) -> str:
+    """Every component with key, dates, directions and its full bullets, grouped by section."""
+    index = index or load_index()
+    lines = []
+    for section, title in SECTIONS.items():
+        lines.append(f"[{title}]")
+        for key, c in index["components"].items():
+            if c["section"] != section:
+                continue
+            lines.append(f"- {key} | {c['title']} | {c['start']} to {c['end']} | "
+                         f"directions: {', '.join(c['directions'])}")
+            lines.extend(f"    * {b}" for b in bullets(key))
+    return "\n".join(lines)
+
+
+def resume_text(index: dict | None = None) -> str:
+    """The whole candidate as one text block: component catalog plus the skills section."""
+    return f"{format_catalog(index)}\n\n[Skills]\n{_component_tex('skills')}"
 
 
 def validate_selection(selection: dict[str, list[str]], index: dict) -> None:

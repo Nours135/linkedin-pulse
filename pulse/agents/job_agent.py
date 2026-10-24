@@ -16,10 +16,10 @@ def _done(job: Job, status: str, **info) -> JobResult:
     return JobResult(job_id=job.id, title=job.title, company=job.company, url=job.url, status=status, **info)
 
 
-def _build_resume(job: Job) -> dict:
+def _build_resume(job: Job, match: matching.Match) -> dict:
     # a failed resume should not block the email; it goes out without the attachment
     try:
-        return resume_agent.run_resume_agent(job)
+        return resume_agent.tailor(job.id, job.description, match.model_dump())
     except Exception as e:
         return {"ok": False, "pdf": None, "error": f"{type(e).__name__}: {e}"}
 
@@ -38,7 +38,7 @@ def process_job(job: Job, kw: matching.Keywords) -> JobResult:
     if match.score < cfg["min_score"]:
         return _done(job, "low_score", score=match.score)
 
-    resume = _build_resume(job)
+    resume = _build_resume(job, match)
     sent_to = email.send(email.compose(job, match, resume), job.id)
     return _done(job, "sent", score=match.score, pdf=resume.get("pdf"),
                  error=resume.get("error"), sent_to=sent_to)

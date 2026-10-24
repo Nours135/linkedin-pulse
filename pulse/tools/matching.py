@@ -7,10 +7,8 @@ from functools import lru_cache
 
 from pydantic import BaseModel, Field
 
-from pulse.agents.resume_agent import format_catalog
-from pulse.config import load_resume
 from pulse.llm import llm
-from pulse.tools.latex import COMPONENTS_DIR
+from pulse.tools import latex
 from pulse.tools.linkedin import Job
 
 
@@ -78,7 +76,7 @@ def _ask(prompt: str, output_format: type[BaseModel]) -> BaseModel:
 
 @lru_cache
 def resume_text() -> str:
-    return f"{format_catalog(load_resume())}\n\n[Skills]\n{(COMPONENTS_DIR / 'skills.tex').read_text()}"
+    return latex.resume_text()
 
 
 @lru_cache
