@@ -8,12 +8,16 @@ Inputs live in assets/:
 A selection maps section -> ordered component keys, e.g.
   {"experience": ["stripe", "aws"], "projects": ["raft-kv"]}
 Order is kept as given; heading, education and skills are always included.
+
+compile_resume also reports how full the page is (a probe in the template logs the natural
+height of the body), so the agent can tell "a fifth of the page left" from "spilled 3 lines".
 """
 
 from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -29,6 +33,16 @@ WORK_DIR = ROOT / "work"
 
 SECTIONS = {"experience": "Experience", "projects": "Projects"}  # render order -> heading
 PDFLATEX_TIMEOUT = 60
+
+# Layout levels, loosest first. Level 0 is stock Jake's Resume; each later level squeezes more
+# onto the page: margin is the final top/bottom margin (in), item_gap the space after a bullet
+# (pt), font the base size (pt). Used to absorb a small overflow instead of dropping content.
+LAYOUTS = [
+    {"margin": 0.5, "item_gap": -2, "font": 11},
+    {"margin": 0.4, "item_gap": -2, "font": 11},
+    {"margin": 0.35, "item_gap": -3, "font": 11},
+    {"margin": 0.3, "item_gap": -4, "font": 11},
+]
 
 _env = Environment(
     loader=FileSystemLoader(ASSETS_DIR),
@@ -73,8 +87,8 @@ def validate_selection(selection: dict[str, list[str]], index: dict) -> None:
         raise ValueError("; ".join(errors))
 
 
-def render_resume(selection: dict[str, list[str]], index: dict | None = None) -> str:
-    """Return compile-ready LaTeX for a selection."""
+def render_resume(selection: dict[str, list[str]], index: dict | None = None, layout: int = 0) -> str:
+    """Return compile-ready LaTeX for a selection at a LAYOUTS level."""
     index = index or load_index()
     validate_selection(selection, index)
     sections = [
@@ -83,7 +97,7 @@ def render_resume(selection: dict[str, list[str]], index: dict | None = None) ->
         if selection.get(name)
     ]
     fixed = {name: _component_tex(name) for name in index["fixed"]}
-    return _env.get_template(TEMPLATE_NAME).render(sections=sections, **fixed)
+    return _env.get_template(TEMPLATE_NAME).render(sections=sections, layout=LAYOUTS[layout], **fixed)
 
 
 def _log_errors(log: str, context: int = 3) -> str:
@@ -96,13 +110,26 @@ def _log_errors(log: str, context: int = 3) -> str:
     return "\n".join(out) or "\n".join(lines[-20:])
 
 
-def compile_resume(selection: dict[str, list[str]], out_dir: Path) -> dict:
+def _fill(log: str, pages: int) -> float | None:
+    """Pages of content as a float: 0.82 leaves 18% of the page empty, 1.07 overflows by 7%.
+    Uses the natural body height logged by the template probe, so it measures the true overflow
+    even when page 2 holds a whole unbreakable block. A one-page PDF is capped at 1.0 because
+    TeX may shrink list glue to squeeze a natural 1.01 onto the page."""
+    m = re.search(r"PULSE-FILL content=([\d.]+)pt page=([\d.]+)pt", log)
+    if not m:
+        return None
+    fill = round(float(m.group(1)) / float(m.group(2)), 3)
+    return min(fill, 1.0) if pages == 1 else fill
+
+
+def compile_resume(selection: dict[str, list[str]], out_dir: Path, layout: int = 0) -> dict:
     """Write out_dir/resume.tex and compile it. Never raises on bad input or LaTeX errors;
-    returns {"ok", "tex", "pdf", "pages", "error"} so the caller can retry."""
+    returns {"ok", "tex", "pdf", "pages", "fill", "layout", "error"} so the caller can retry."""
     out_dir = Path(out_dir)
-    result = {"ok": False, "tex": None, "pdf": None, "pages": None, "error": None}
+    result = {"ok": False, "tex": None, "pdf": None, "pages": None, "fill": None,
+              "layout": layout, "error": None}
     try:
-        tex = render_resume(selection)
+        tex = render_resume(selection, layout=layout)
     except ValueError as e:
         result["error"] = str(e)
         return result
@@ -134,8 +161,28 @@ def compile_resume(selection: dict[str, list[str]], out_dir: Path) -> dict:
 
     for ext in (".aux", ".out"):
         (out_dir / f"resume{ext}").unlink(missing_ok=True)
-    result.update(ok=True, pdf=str(pdf_path), pages=int(m.group(1)))
+    pages = int(m.group(1))
+    result.update(ok=True, pdf=str(pdf_path), pages=pages, fill=_fill(log, pages))
     return result
+
+
+def pdf_to_png(pdf_path: Path, dpi: int = 100) -> list[Path]:
+    """Rasterize every page with Ghostscript to <name>-<n>.png next to the PDF.
+    Returns [] when gs is not installed so callers can fall back to sending the PDF itself."""
+    gs = shutil.which("gs")
+    if not gs:
+        return []
+    pdf_path = Path(pdf_path)
+    for old in pdf_path.parent.glob(f"{pdf_path.stem}-*.png"):
+        old.unlink()
+    pattern = pdf_path.parent / f"{pdf_path.stem}-%d.png"
+    subprocess.run(
+        [gs, "-q", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-sDEVICE=png16m", f"-r{dpi}",
+         f"-sOutputFile={pattern}", str(pdf_path)],
+        capture_output=True, timeout=PDFLATEX_TIMEOUT,
+    )
+    return sorted(pdf_path.parent.glob(f"{pdf_path.stem}-*.png"),
+                  key=lambda p: int(p.stem.rsplit("-", 1)[1]))
 
 
 # ---- LangChain tools for the agent ----

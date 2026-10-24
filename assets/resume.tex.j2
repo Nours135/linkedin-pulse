@@ -5,9 +5,11 @@
 % Jinja delimiters are double parens, paren-percent and paren-hash (see pulse/tools/latex.py)
 % so they never clash with LaTeX braces or macro arguments like {#1}.
 % Section bodies are pasted verbatim from assets/components/<key>.tex.
+% layout.* comes from LAYOUTS in pulse/tools/latex.py: tighter levels shrink the vertical
+% margins, the gap after each bullet and finally the font size to squeeze a small overflow.
 %-------------------------
 
-\documentclass[letterpaper,11pt]{article}
+\documentclass[letterpaper,(( layout.font ))pt]{article}
 
 \usepackage{latexsym}
 \usepackage[empty]{fullpage}
@@ -32,8 +34,8 @@
 \addtolength{\oddsidemargin}{-0.5in}
 \addtolength{\evensidemargin}{-0.5in}
 \addtolength{\textwidth}{1in}
-\addtolength{\topmargin}{-.5in}
-\addtolength{\textheight}{1.0in}
+\addtolength{\topmargin}{-(( '%.3f' % (1 - layout.margin) ))in}
+\addtolength{\textheight}{(( '%.3f' % (2 * (1 - layout.margin)) ))in}
 
 \urlstyle{same}
 
@@ -53,7 +55,7 @@
 % Custom commands
 \newcommand{\resumeItem}[1]{
   \item\small{
-    {#1 \vspace{-2pt}}
+    {#1 \vspace{(( layout.item_gap ))pt}}
   }
 }
 
@@ -82,6 +84,9 @@
 %-------------------------------------------
 \begin{document}
 
+% Fill probe: typeset the body into a box first to log its natural height (total content,
+% unaffected by where pages break), then release it with \unvbox so breaking works as usual.
+\setbox0=\vbox{
 (( heading ))
 
 (( education ))
@@ -96,5 +101,8 @@
 
 (% endfor %)
 (( skills ))
+\par}
+\typeout{PULSE-FILL content=\the\dimexpr\ht0+\dp0\relax\space page=\the\textheight}
+\unvbox0
 
 \end{document}
