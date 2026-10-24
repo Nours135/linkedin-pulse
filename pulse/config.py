@@ -1,7 +1,8 @@
-"""Load config.yaml / .env and expose settings, work_dir, load_resume and llm."""
+"""Load config.yaml / .env and expose settings, work_dir and load_resume."""
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import yaml
@@ -14,3 +15,7 @@ load_dotenv(ROOT / ".env")
 
 settings: dict = yaml.safe_load((ROOT / "config.yaml").read_text()) or {}
 work_dir = ROOT / settings.get("work_dir", "work")
+
+
+def load_resume() -> dict:
+    return json.loads((ROOT / settings["resume"]).read_text())

@@ -5,3 +5,4 @@ __pycache__/
 .venv/
 pulse/tools/linkedin_results/
 uv.lock
+*.egg-info/
