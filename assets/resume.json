@@ -3,45 +3,130 @@
     "name": "John Wang",
     "email": "john.wang@example.com",
     "phone": "+1 555-000-0000",
-    "location": "San Francisco, CA",
-    "links": ["github.com/johnwang", "linkedin.com/in/johnwang"]
+    "location": "San Diego, CA",
+    "links": ["github.com/johnwang", "linkedin.com/in/johnwang"],
+    "summary": "Senior CS student at UC San Diego (graduating Jun 2027) seeking new-grad software engineering roles."
   },
-  "summary": "Backend engineer focused on distributed systems and LLM applications.",
-  "experience": [
-    {
-      "id": "acme",
-      "company": "Acme Corp",
-      "title": "Software Engineer",
-      "dates": "2023 – Present",
-      "bullets": [
-        {"id": "acme-1", "text": "Built a Python/FastAPI service handling 5k RPS with p99 < 80ms."},
-        {"id": "acme-2", "text": "Designed an LLM retrieval pipeline that cut support tickets by 30%."},
-        {"id": "acme-3", "text": "Migrated batch jobs from cron to Airflow on Kubernetes."},
-        {"id": "acme-4", "text": "Mentored 3 interns and ran the team's code review guild."}
-      ]
+  "fixed": ["heading", "education", "skills"],
+  "components": {
+    "stripe": {
+      "section": "experience",
+      "title": "Stripe - Software Engineer Intern, Payments Infrastructure",
+      "start": "2026-06", "end": "2026-09",
+      "directions": ["backend"],
+      "summary": "Go reconciliation service, idempotent payout webhooks with Postgres dedup, gRPC performance tuning under load tests"
     },
-    {
-      "id": "startup",
-      "company": "Tiny Startup",
-      "title": "Backend Intern",
-      "dates": "2022",
-      "bullets": [
-        {"id": "startup-1", "text": "Implemented Stripe billing with idempotent webhooks in Go."},
-        {"id": "startup-2", "text": "Added Postgres indexes that reduced dashboard load time 4x."}
-      ]
+    "scale-ai": {
+      "section": "experience",
+      "title": "Scale AI - Machine Learning Engineer Intern (Part-time)",
+      "start": "2026-01", "end": "2026-03",
+      "directions": ["ml"],
+      "summary": "LLM-as-judge evaluation pipeline, LoRA fine-tuned reranker for retrieval, judge-human agreement calibration"
+    },
+    "petco-data": {
+      "section": "experience",
+      "title": "Petco - Data Engineering Intern (Part-time)",
+      "start": "2025-09", "end": "2025-12",
+      "directions": ["data"],
+      "summary": "Airflow + dbt pipelines into Snowflake, Great Expectations data quality checks, pandas to PySpark rewrite"
+    },
+    "aws": {
+      "section": "experience",
+      "title": "Amazon Web Services - Software Development Engineer Intern",
+      "start": "2025-06", "end": "2025-09",
+      "directions": ["infra", "backend"],
+      "summary": "AWS CDK deployment pipeline with rollback, EventBridge + Step Functions migration, CloudWatch SLO alarms and on-call runbooks"
+    },
+    "ucsd-security": {
+      "section": "experience",
+      "title": "UC San Diego IT Services - Student Security Analyst (Part-time)",
+      "start": "2025-01", "end": "2025-06",
+      "directions": ["security"],
+      "summary": "Splunk detections for credential stuffing, Python alert enrichment with threat intel, Nessus vulnerability scanning and remediation"
+    },
+    "sysnet-lab": {
+      "section": "experience",
+      "title": "UC San Diego Systems and Networking Lab - Undergraduate Research Assistant",
+      "start": "2024-09", "end": "present",
+      "directions": ["systems"],
+      "summary": "C++ learned cache eviction policy, Rust trace-replay benchmarking harness, co-authored workshop paper"
+    },
+    "wavelet-mobile": {
+      "section": "experience",
+      "title": "Wavelet Health - Mobile Engineering Intern",
+      "start": "2024-06", "end": "2024-09",
+      "directions": ["mobile"],
+      "summary": "Kotlin Android offline-first sync, SwiftUI onboarding A/B test, iOS cold-start optimization"
+    },
+    "tse": {
+      "section": "experience",
+      "title": "Triton Software Engineering - Full-Stack Developer, Tech Lead",
+      "start": "2023-10", "end": "2025-06",
+      "directions": ["frontend"],
+      "summary": "React/TypeScript/Node/Postgres nonprofit web app, WCAG accessibility work, led a team of 5 with CI/CD"
+    },
+    "linkedin-pulse": {
+      "section": "projects",
+      "title": "linkedin-pulse (Python, LangGraph, Claude API, LaTeX)",
+      "start": "2026-09", "end": "present",
+      "directions": ["ml", "backend"],
+      "summary": "LLM agent that polls LinkedIn jobs, scores fit and compiles a tailored LaTeX resume per JD"
+    },
+    "raft-kv": {
+      "section": "projects",
+      "title": "raft-kv (Go, gRPC)",
+      "start": "2026-03", "end": "2026-03",
+      "directions": ["backend", "systems"],
+      "summary": "Raft consensus in Go and a linearizable sharded key-value store tested with fault injection"
+    },
+    "mini-transformer": {
+      "section": "projects",
+      "title": "mini-transformer (PyTorch, CUDA)",
+      "start": "2025-12", "end": "2025-12",
+      "directions": ["ml"],
+      "summary": "Trained a 25M-parameter transformer from scratch with FlashAttention; blog series on attention and KV caching"
+    },
+    "fuzzlab": {
+      "section": "projects",
+      "title": "fuzzlab (C, AFL++, libFuzzer, Python)",
+      "start": "2025-11", "end": "2025-11",
+      "directions": ["security"],
+      "summary": "Fuzzing harnesses that found memory-safety bugs in image parsers; CTF team (pwn, web)"
+    },
+    "tiny-tcp": {
+      "section": "projects",
+      "title": "tiny-tcp (C, Linux)",
+      "start": "2025-06", "end": "2025-06",
+      "directions": ["systems"],
+      "summary": "User-space TCP stack over TUN with retransmission and Reno congestion control, interoperates with Linux"
+    },
+    "transit-stream": {
+      "section": "projects",
+      "title": "transit-stream (Kafka, Flink, ClickHouse, Grafana)",
+      "start": "2025-04", "end": "2025-04",
+      "directions": ["data"],
+      "summary": "Real-time bus position streaming with Kafka + Flink event-time windows into ClickHouse dashboards"
+    },
+    "homelab-gitops": {
+      "section": "projects",
+      "title": "homelab-gitops (Kubernetes, Terraform, Argo CD, Prometheus)",
+      "start": "2025-02", "end": "2025-02",
+      "directions": ["infra"],
+      "summary": "k3s cluster provisioned with Terraform, GitOps via Argo CD, Prometheus/Grafana SLO monitoring"
+    },
+    "inkboard": {
+      "section": "projects",
+      "title": "inkboard (TypeScript, React, Yjs, WebSockets)",
+      "start": "2024-10", "end": "2024-10",
+      "directions": ["frontend"],
+      "summary": "Real-time collaborative whiteboard with CRDTs, offline merge, 60 fps canvas rendering"
+    },
+    "tritoneats": {
+      "section": "projects",
+      "title": "TritonEats (Swift, SwiftUI, FastAPI, Redis)",
+      "start": "2024-01", "end": "2024-01",
+      "directions": ["mobile"],
+      "summary": "iOS app with live dining-hall menus and widgets, 2,000+ users; FastAPI + Redis backend"
     }
-  ],
-  "projects": [
-    {
-      "id": "pulse",
-      "name": "linkedin-pulse",
-      "bullets": [
-        {"id": "pulse-1", "text": "LangGraph agent that polls LinkedIn jobs and tailors resumes per JD."}
-      ]
-    }
-  ],
-  "education": [
-    {"school": "UC Berkeley", "degree": "B.S. Computer Science", "dates": "2019 – 2023"}
-  ],
-  "skills": ["Python", "Go", "PostgreSQL", "Kubernetes", "LangGraph", "AWS"]
+  }
 }

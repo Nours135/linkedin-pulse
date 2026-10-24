@@ -1,39 +1,100 @@
-% Jinja 定界符改成 (( )) / (% %)，避免和 LaTeX 的 { } 冲突
-\documentclass[10pt]{article}
-\usepackage[margin=0.6in]{geometry}
+%-------------------------
+% Jake's Resume (https://github.com/jakegut/resume), MIT License
+% Based off of https://github.com/sb2nov/resume
+%
+% Jinja delimiters are double parens, paren-percent and paren-hash (see pulse/tools/latex.py)
+% so they never clash with LaTeX braces or macro arguments like {#1}.
+% Section bodies are pasted verbatim from assets/components/<key>.tex.
+%-------------------------
+
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
 \usepackage{enumitem}
-\setlist{nosep,leftmargin=*}
-\pagestyle{empty}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\input{glyphtounicode}
 
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+% Adjust margins
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.0in}
+
+\urlstyle{same}
+
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+% Sections formatting
+\titleformat{\section}{
+  \vspace{-4pt}\scshape\raggedright\large
+}{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
+
+% Make the PDF machine readable / ATS parsable
+\pdfgentounicode=1
+
+%-------------------------
+% Custom commands
+\newcommand{\resumeItem}[1]{
+  \item\small{
+    {#1 \vspace{-2pt}}
+  }
+}
+
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+    \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & #2 \\
+      \textit{\small#3} & \textit{\small #4} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeProjectHeading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \small#1 & #2 \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+
+%-------------------------------------------
 \begin{document}
-\begin{center}
-  {\LARGE \textbf{(( basics.name ))}}\\
-  (( basics.email )) \;|\; (( basics.phone )) \;|\; (( basics.location ))
-\end{center}
 
-\section*{Experience}
-(% for job in experience %)
-\textbf{(( job.title ))}, (( job.company )) \hfill (( job.dates ))
-\begin{itemize}
-(% for b in job.bullets %)  \item (( b.text ))
-(% endfor %)\end{itemize}
+(( heading ))
+
+(( education ))
+
+(% for section in sections %)
+\section{(( section.title ))}
+  \resumeSubHeadingListStart
+(% for body in section.components %)
+(( body ))
 (% endfor %)
+  \resumeSubHeadingListEnd
 
-(% if projects %)
-\section*{Projects}
-(% for p in projects %)
-\textbf{(( p.name ))}
-\begin{itemize}
-(% for b in p.bullets %)  \item (( b.text ))
-(% endfor %)\end{itemize}
 (% endfor %)
-(% endif %)
+(( skills ))
 
-\section*{Education}
-(% for e in education %)
-\textbf{(( e.school ))}, (( e.degree )) \hfill (( e.dates ))\\
-(% endfor %)
-
-\section*{Skills}
-(( skills | join(", ") ))
 \end{document}

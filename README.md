@@ -5,8 +5,9 @@ main.py                    # heartbeat loop
 config.yaml                # polling interval, search location, match threshold
 .env.example               # API key / SMTP
 assets/
-  resume.json              # user's JSON resume (sample: John Wang)
-  resume.tex.j2            # LaTeX resume template
+  resume.json              # component index: section, dates, directions, summary (sample: John Wang)
+  components/<key>.tex     # copy-paste ready LaTeX per component + heading/education/skills
+  resume.tex.j2            # Jake's Resume template
 work/                      # run outputs (gitignored)
 pulse/
   config.py                # config, LLM client
