@@ -12,7 +12,7 @@ work/                      # run outputs (gitignored)
 pulse/
   config.py                # config, LLM client
   state.py                 # LangGraph State
-  store.py                 # dedup of processed jobs
+  store.py                 # work/jobs.json: every seen job by stage (found/fetched/applied)
   graph.py                 # entry node → job agent
   agents/
     job_agent.py           # job polling agent

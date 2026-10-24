@@ -12,8 +12,11 @@ search:
     - Backend Engineer
     - Machine Learning Engineer
   location: United States
-  posted_within_hours: 24
+  posted_within_hours: 120  # LinkedIn-side window; keep it >= filter.max_age_days * 24
   max_jobs: 25           # per query
+
+filter:                  # applied by the job agent before any JD fetch or LLM call
+  max_age_days: 5        # drop jobs posted more than this many days ago
 
 match:
   min_keyword_hits: 3    # keyword pre-filter on the JD, before any LLM call

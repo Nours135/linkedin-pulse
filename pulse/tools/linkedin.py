@@ -47,6 +47,8 @@ class Job:
     posted_at: str  # YYYY-MM-DD
     url: str
     description: str = ""  # filled only by fetch_job_detail
+    found_at: str = ""     # when the search returned it (ISO, seconds)
+    fetched_at: str = ""   # when fetch_job_detail fetched the JD (ISO, seconds)
 
 
 def _get(url: str, params: dict | None = None, retries: int = 3) -> requests.Response:
@@ -131,6 +133,7 @@ def search_jobs(
     jobs: dict[str, Job] = {}
     warnings: list[str] = []
     bad_cards = 0
+    now = datetime.now()
     while len(jobs) < max_jobs:
         try:
             resp = _get(SEARCH_URL, params)
@@ -151,6 +154,7 @@ def search_jobs(
                 bad_cards += 1
                 continue
             if job and job.id not in jobs:
+                job.found_at = now.isoformat(timespec="seconds")
                 jobs[job.id] = job
         params["start"] += len(cards)
         time.sleep(PAGE_DELAY)
@@ -162,7 +166,6 @@ def search_jobs(
     result = sorted(jobs.values(), key=lambda j: j.posted_at, reverse=True)[:max_jobs]
 
     if save:
-        now = datetime.now()
         slug = re.sub(r"[^a-z0-9]+", "-", keywords.lower()).strip("-") or "all"
         err = _write_json(SEARCHES_DIR / f"{now:%Y%m%d-%H%M%S}_{slug}.json", {
             "keywords": keywords,
@@ -202,6 +205,7 @@ def fetch_job_detail(job: Job, save: bool = True) -> Job:
     ]
     job.description = "\n".join(filter(None, [body, *criteria]))
     job.description = re.sub(r"\n{3,}", "\n\n", job.description)
+    job.fetched_at = datetime.now().isoformat(timespec="seconds")
 
     if save:
         _write_json(JOBS_DIR / f"{job.id}.json", asdict(job))  # a save failure should not lose the JD

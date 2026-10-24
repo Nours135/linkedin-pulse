@@ -36,14 +36,17 @@ def compose(job: Job, match: Match, resume: dict) -> EmailMessage:
         "",
     ]
     pdf = resume.get("pdf")
-    if resume.get("ok") and pdf:
+    attach = bool(resume.get("ok") and pdf)
+    if attach:
         lines.append("Tailored resume attached.")
+    else:
+        lines.append(f"Resume not generated: {resume.get('error') or 'unknown error'}")
+    # the body must be set before attaching: set_content on a multipart message raises
+    msg.set_content("\n".join(lines))
+    if attach:
         name = re.sub(r"[^\w-]+", "_", job.company).strip("_") or job.id
         msg.add_attachment(Path(pdf).read_bytes(), maintype="application", subtype="pdf",
                            filename=f"resume_{name}.pdf")
-    else:
-        lines.append(f"Resume not generated: {resume.get('error') or 'unknown error'}")
-    msg.set_content("\n".join(lines))
     return msg
 
 
