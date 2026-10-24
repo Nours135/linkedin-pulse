@@ -1,0 +1,47 @@
+{
+  "basics": {
+    "name": "John Wang",
+    "email": "john.wang@example.com",
+    "phone": "+1 555-000-0000",
+    "location": "San Francisco, CA",
+    "links": ["github.com/johnwang", "linkedin.com/in/johnwang"]
+  },
+  "summary": "Backend engineer focused on distributed systems and LLM applications.",
+  "experience": [
+    {
+      "id": "acme",
+      "company": "Acme Corp",
+      "title": "Software Engineer",
+      "dates": "2023 – Present",
+      "bullets": [
+        {"id": "acme-1", "text": "Built a Python/FastAPI service handling 5k RPS with p99 < 80ms."},
+        {"id": "acme-2", "text": "Designed an LLM retrieval pipeline that cut support tickets by 30%."},
+        {"id": "acme-3", "text": "Migrated batch jobs from cron to Airflow on Kubernetes."},
+        {"id": "acme-4", "text": "Mentored 3 interns and ran the team's code review guild."}
+      ]
+    },
+    {
+      "id": "startup",
+      "company": "Tiny Startup",
+      "title": "Backend Intern",
+      "dates": "2022",
+      "bullets": [
+        {"id": "startup-1", "text": "Implemented Stripe billing with idempotent webhooks in Go."},
+        {"id": "startup-2", "text": "Added Postgres indexes that reduced dashboard load time 4x."}
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "id": "pulse",
+      "name": "linkedin-pulse",
+      "bullets": [
+        {"id": "pulse-1", "text": "LangGraph agent that polls LinkedIn jobs and tailors resumes per JD."}
+      ]
+    }
+  ],
+  "education": [
+    {"school": "UC Berkeley", "degree": "B.S. Computer Science", "dates": "2019 – 2023"}
+  ],
+  "skills": ["Python", "Go", "PostgreSQL", "Kubernetes", "LangGraph", "AWS"]
+}

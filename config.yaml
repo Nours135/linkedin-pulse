@@ -1,0 +1,11 @@
+heartbeat_minutes: 30
+resume: assets/resume.json
+work_dir: work
+
+search:
+  location: United States
+  posted_within_hours: 24
+  max_jobs: 25
+
+match:
+  min_score: 70          # 低于该分数不生成简历/邮件

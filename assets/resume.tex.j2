@@ -1,0 +1,39 @@
+% Jinja 定界符改成 (( )) / (% %)，避免和 LaTeX 的 { } 冲突
+\documentclass[10pt]{article}
+\usepackage[margin=0.6in]{geometry}
+\usepackage{enumitem}
+\setlist{nosep,leftmargin=*}
+\pagestyle{empty}
+
+\begin{document}
+\begin{center}
+  {\LARGE \textbf{(( basics.name ))}}\\
+  (( basics.email )) \;|\; (( basics.phone )) \;|\; (( basics.location ))
+\end{center}
+
+\section*{Experience}
+(% for job in experience %)
+\textbf{(( job.title ))}, (( job.company )) \hfill (( job.dates ))
+\begin{itemize}
+(% for b in job.bullets %)  \item (( b.text ))
+(% endfor %)\end{itemize}
+(% endfor %)
+
+(% if projects %)
+\section*{Projects}
+(% for p in projects %)
+\textbf{(( p.name ))}
+\begin{itemize}
+(% for b in p.bullets %)  \item (( b.text ))
+(% endfor %)\end{itemize}
+(% endfor %)
+(% endif %)
+
+\section*{Education}
+(% for e in education %)
+\textbf{(( e.school ))}, (( e.degree )) \hfill (( e.dates ))\\
+(% endfor %)
+
+\section*{Skills}
+(( skills | join(", ") ))
+\end{document}
