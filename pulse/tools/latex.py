@@ -69,10 +69,30 @@ def _component_tex(key: str) -> str:
 
 # ---- Plain-text views of the resume for LLM prompts ----
 
+def _unescape(tex: str) -> str:
+    return re.sub(r"\\([%&$#_])", r"\1", tex).replace("--", "-")
+
+
+def _items(tex: str) -> list[str]:
+    return [_unescape(i) for i in re.findall(r"\\resumeItem\{(.*)\}\s*$", tex, flags=re.MULTILINE)]
+
+
 def bullets(key: str) -> list[str]:
     """Bullet text of a component, with LaTeX escapes undone for readability."""
-    items = re.findall(r"\\resumeItem\{(.*)\}\s*$", _component_tex(key), flags=re.MULTILINE)
-    return [re.sub(r"\\([%&$#_])", r"\1", item) for item in items]
+    return _items(_component_tex(key))
+
+
+def format_education() -> str:
+    """One line per school (school, location, degree, dates) followed by its bullets."""
+    lines = []
+    # each \resumeSubheading{school}{location}{degree}{dates} starts one school entry
+    for entry in _component_tex("education").split(r"\resumeSubheading")[1:]:
+        m = re.match(r"\s*\{(.*?)\}\{(.*?)\}\s*\{(.*?)\}\{(.*?)\}", entry)
+        if not m:
+            continue
+        lines.append("- " + " | ".join(_unescape(g) for g in m.groups()))
+        lines.extend(f"    * {b}" for b in _items(entry))
+    return "\n".join(lines)
 
 
 def format_catalog(index: dict | None = None) -> str:
@@ -91,8 +111,9 @@ def format_catalog(index: dict | None = None) -> str:
 
 
 def resume_text(index: dict | None = None) -> str:
-    """The whole candidate as one text block: component catalog plus the skills section."""
-    return f"{format_catalog(index)}\n\n[Skills]\n{_component_tex('skills')}"
+    """The whole candidate as one text block: education, component catalog and skills."""
+    return (f"[Education]\n{format_education()}\n\n{format_catalog(index)}\n\n"
+            f"[Skills]\n{_component_tex('skills')}")
 
 
 def validate_selection(selection: dict[str, list[str]], index: dict) -> None:
