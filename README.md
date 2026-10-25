@@ -6,6 +6,8 @@ Job hunting usually means constantly refreshing job boards, skimming dozens of p
 
 *(Note: Auto-applying is temporarily omitted due to LinkedIn’s strict anti-automation risk policies).*
 
+> 🏆 Built for [c0mpiled-16: UCSD](https://luma.com/compiled-im3b) (October 24, 2026) as a hackathon submission.
+>
 > [Demo video](https://drive.google.com/file/d/1X1NKJcGOmuTrfUIz9EKLBgnB4PFBJIvD/view?usp=sharing)
 
 ---
