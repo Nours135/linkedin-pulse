@@ -47,7 +47,9 @@ Score how well this candidate fits the job, from 0 to 100.
 - 40-69: partial overlap; important required skills or the expected level are missing.
 - 0-39: different field, or requirements clearly out of reach (e.g. many more years of experience).
 
-Judge required qualifications more heavily than nice-to-haves.
+Judge required qualifications more heavily than nice-to-haves. A required security clearance,
+US citizenship requirement, or "no visa sponsorship" is out of reach unless the resume shows the
+candidate meets it: cap the score at 39 and name the requirement in the reasons.
 
 Job: {title} at {company} ({location})
 Description:
@@ -92,8 +94,10 @@ def _contains(text: str, word: str) -> bool:
 
 
 def title_excluded(title: str, kw: Keywords) -> bool:
-    title = title.lower()
-    return any(_contains(title, w) for w in kw.exclude_title)
+    """A title like "Software Engineer/Sr. Software Engineer" hires at either level, so it is
+    excluded only if every "/"-separated alternative is."""
+    parts = [p for p in title.lower().split("/") if p.strip()] or [title.lower()]
+    return all(any(_contains(p, w) for w in kw.exclude_title) for p in parts)
 
 
 def keyword_hits(text: str, kw: Keywords) -> list[str]:
