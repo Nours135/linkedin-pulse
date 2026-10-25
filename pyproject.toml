@@ -11,6 +11,7 @@ dependencies = [
     "jinja2",
     "pyyaml",
     "python-dotenv",
+    "tqdm",
 ]
 
 [tool.setuptools.packages.find]
