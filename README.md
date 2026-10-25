@@ -6,7 +6,7 @@ Job hunting usually means constantly refreshing job boards, skimming dozens of p
 
 *(Note: Auto-applying is temporarily omitted due to LinkedIn’s strict anti-automation risk policies).*
 
-> Demo video: _add link here_
+> [Demo video](https://drive.google.com/file/d/1X1NKJcGOmuTrfUIz9EKLBgnB4PFBJIvD/view?usp=sharing)
 
 ---
 
