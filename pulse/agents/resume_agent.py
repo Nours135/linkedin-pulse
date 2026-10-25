@@ -16,6 +16,7 @@ import re
 from pathlib import Path
 
 from langchain_core.tools import tool
+from tqdm import tqdm
 
 from pulse.llm import LLMError, image, llm, pdf
 from pulse.tools.latex import (
@@ -142,34 +143,44 @@ def tailor(job_id: str, jd: str, match: dict | str, out_dir: Path | None = None)
     system = system_prompt(index)
     match = match if isinstance(match, str) else json.dumps(match, indent=2)
 
-    selection = _ask([SELECT_TASK.format(jd=jd, match=match)], system, index, "resume.select")
-    tried = [selection]
-    trace = []
-    best = None  # latest selection that compiled to one page
+    # one step for the select call, then one per fit round; nested under the job agent's bar
+    with tqdm(total=MAX_ROUNDS + 1, desc=f"  resume {job_id}", unit="step", leave=False) as bar:
+        bar.set_postfix_str("selecting components")
+        selection = _ask([SELECT_TASK.format(jd=jd, match=match)], system, index, "resume.select")
+        bar.update()
+        tried = [selection]
+        trace = []
+        best = None  # latest selection that compiled to one page
 
-    for _ in range(MAX_ROUNDS):
-        result = _fit_layout(selection, out_dir)
-        if not result["ok"]:
-            raise LLMError(f"compile failed for {selection}: {result['error']}")
-        trace.append({"selection": selection, "pages": result["pages"],
-                      "fill": result["fill"], "layout": result["layout"]})
-        if result["pages"] == 1:
-            best = (selection, result)
-            if result["fill"] >= MIN_FILL:
+        for _ in range(MAX_ROUNDS):
+            bar.set_postfix_str("compiling")
+            result = _fit_layout(selection, out_dir)
+            if not result["ok"]:
+                raise LLMError(f"compile failed for {selection}: {result['error']}")
+            trace.append({"selection": selection, "pages": result["pages"],
+                          "fill": result["fill"], "layout": result["layout"]})
+            status = f"{result['pages']}p fill {result['fill']:.0%} L{result['layout']}"
+            if result["pages"] == 1:
+                best = (selection, result)
+                if result["fill"] >= MIN_FILL:
+                    bar.update()
+                    break
+                task = ADD_TASK.format(fill=result["fill"], left=1 - result["fill"])
+                bar.set_postfix_str(f"{status}, asking LLM to add")
+            else:
+                task = REMOVE_TASK.format(pages=result["pages"], fill=result["fill"],
+                                          over=result["fill"] - 1)
+                bar.set_postfix_str(f"{status}, asking LLM to remove")
+
+            context = CONTEXT.format(jd=jd, match=match, selection=json.dumps(selection),
+                                     tried=json.dumps(tried[:-1]))
+            proposal = _ask([task, context, *_preview(result)], system, index, "resume.fit")
+            bar.update()
+            if proposal == selection or proposal in tried:
+                trace.append({"stop": "no new selection proposed"})
                 break
-            task = ADD_TASK.format(fill=result["fill"], left=1 - result["fill"])
-        else:
-            task = REMOVE_TASK.format(pages=result["pages"], fill=result["fill"],
-                                      over=result["fill"] - 1)
-
-        context = CONTEXT.format(jd=jd, match=match, selection=json.dumps(selection),
-                                 tried=json.dumps(tried[:-1]))
-        proposal = _ask([task, context, *_preview(result)], system, index, "resume.fit")
-        if proposal == selection or proposal in tried:
-            trace.append({"stop": "no new selection proposed"})
-            break
-        selection = proposal
-        tried.append(selection)
+            selection = proposal
+            tried.append(selection)
 
     if best is None:
         return {**result, "ok": False, "selection": selection, "trace": trace,

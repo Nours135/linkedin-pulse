@@ -22,5 +22,8 @@ match:
   min_keyword_hits: 3    # keyword pre-filter on the JD, before any LLM call
   min_score: 70          # skip resume/email below this score
 
+retry:
+  max_attempts: 3        # a job that errored is retried on later heartbeats up to this many times
+
 email:
   dry_run: true          # write work/outbox/<job_id>.eml instead of sending

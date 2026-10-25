@@ -6,12 +6,17 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
+from tqdm import tqdm
+
 from pulse import store
 from pulse.agents import resume_agent
 from pulse.config import settings
 from pulse.state import JobResult, PulseState
 from pulse.tools import email, matching
 from pulse.tools.linkedin import Job, fetch_job_detail
+
+# resume-agent fields kept in jobs.json; the full fit-loop trace goes next to the archived PDF
+RESUME_SUMMARY = ("selection", "pages", "fill", "layout")
 
 
 def _done(job: Job, status: str, **info) -> JobResult:
@@ -37,9 +42,15 @@ def _build_resume(job: Job, match: matching.Match) -> dict:
     try:
         resume = resume_agent.tailor(job.id, job.description, match.model_dump())
     except Exception as e:
+        tqdm.write(f"  resume {job.id} failed: {type(e).__name__}: {e}")
         return {"ok": False, "pdf": None, "error": f"{type(e).__name__}: {e}"}
     if resume.get("pdf"):
-        resume["pdf"] = store.persist_resume(job.id, resume["pdf"])
+        meta = {k: resume.get(k) for k in ("ok", "error", *RESUME_SUMMARY, "trace")}
+        resume["pdf"] = store.persist_resume(job.id, resume["pdf"], meta)
+    fill = f"{resume['fill']:.0%}" if resume.get("fill") is not None else "?"
+    tqdm.write(f"  resume {job.id}: {'ok' if resume.get('ok') else 'FAILED'}, {resume.get('pages')} page(s), "
+               f"fill {fill}, layout {resume.get('layout')}, {len(resume.get('trace', []))} trace steps"
+               + (f" ({resume['error']})" if resume.get("error") else ""))
     return resume
 
 
@@ -64,17 +75,19 @@ def process_job(job: Job, kw: matching.Keywords) -> JobResult:
     sent_to = email.send(email.compose(job, match, resume), job.id)
     return _done(job, "sent", hits=hits, score=match.score, match=match.model_dump(),
                  resume_pdf=resume.get("pdf"),
+                 resume={k: resume.get(k) for k in RESUME_SUMMARY},
                  error=resume.get("error"), sent_to=sent_to)
 
 
 def run(state: PulseState) -> dict:
     kw = matching.generate_keywords()
     results = []
-    for job in state["jobs"]:
+    bar = tqdm(state["jobs"], desc="jobs", unit="job")
+    for job in bar:
+        bar.set_postfix_str(f"{job.title[:30]} @ {job.company[:20]}")
         try:
             results.append(process_job(job, kw))
         except Exception as e:
-            # not recorded in the store, so the job is retried next heartbeat
-            results.append(JobResult(job_id=job.id, title=job.title, company=job.company, url=job.url,
-                                     status="error", error=f"{type(e).__name__}: {e}"))
+            # recorded with an attempts count; retried next heartbeat until retry.max_attempts
+            results.append(_done(job, "error", error=f"{type(e).__name__}: {e}"))
     return {"results": results}

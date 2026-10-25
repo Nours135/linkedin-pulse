@@ -12,7 +12,7 @@ from pulse.tools.linkedin import LinkedInError, search_jobs
 
 
 def entry(state: PulseState) -> dict:
-    """Search every configured query and keep jobs not seen before."""
+    """Search every configured query and keep jobs not seen before (or errored and retryable)."""
     cfg = settings["search"]
     seen = store.load()
     jobs = {}
@@ -25,7 +25,7 @@ def entry(state: PulseState) -> dict:
         for w in warnings:
             print(f"[entry] {query!r}: {w}")
         for job in found:
-            if job.id not in seen:
+            if not store.skip(seen.get(job.id)):
                 jobs.setdefault(job.id, job)
     print(f"[entry] {len(jobs)} new jobs")
     return {"jobs": list(jobs.values())}

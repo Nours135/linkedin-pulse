@@ -8,6 +8,8 @@ import smtplib
 from email.message import EmailMessage
 from pathlib import Path
 
+from tqdm import tqdm
+
 from pulse.config import settings, work_dir
 from pulse.tools.linkedin import Job
 from pulse.tools.matching import Match
@@ -50,12 +52,31 @@ def compose(job: Job, match: Match, resume: dict) -> EmailMessage:
     return msg
 
 
+def preview(msg: EmailMessage, saved_to: str | Path) -> str:
+    """Human-readable dump of a message: headers, attachments and the plain-text body."""
+    attachments = [f"{a.get_filename()} ({len(a.get_content()) // 1024} KB)" for a in msg.iter_attachments()]
+    body = msg.get_body(preferencelist=("plain",)).get_content().rstrip()
+    rule = "-" * 72
+    return "\n".join([
+        rule,
+        f"[dry run] email saved to {saved_to}",
+        f"To:         {msg['To'] or '(EMAIL_TO / SMTP_USER not set)'}",
+        f"Subject:    {msg['Subject']}",
+        f"Attachment: {', '.join(attachments) or '-'}",
+        "",
+        body,
+        rule,
+    ])
+
+
 def send(msg: EmailMessage, job_id: str) -> str:
-    """Send via SMTP, or write work/outbox/<job_id>.eml when email.dry_run is on. Returns where it went."""
+    """Send via SMTP, or write work/outbox/<job_id>.eml and print it when email.dry_run is on.
+    Returns where it went."""
     if settings.get("email", {}).get("dry_run", True):
         OUTBOX.mkdir(parents=True, exist_ok=True)
         path = OUTBOX / f"{job_id}.eml"
         path.write_bytes(msg.as_bytes())
+        tqdm.write(preview(msg, path))  # tqdm.write keeps the job progress bar intact
         return str(path)
     with smtplib.SMTP_SSL(os.getenv("SMTP_HOST", "smtp.gmail.com"), int(os.getenv("SMTP_PORT", "465"))) as smtp:
         smtp.login(os.environ["SMTP_USER"], os.environ["SMTP_PASSWORD"])
