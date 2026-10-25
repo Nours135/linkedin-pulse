@@ -8,15 +8,19 @@ from pulse import store
 from pulse.agents import job_agent
 from pulse.config import settings
 from pulse.state import PulseState
+from pulse.tools import matching
 from pulse.tools.linkedin import LinkedInError, search_jobs
 
 
 def entry(state: PulseState) -> dict:
-    """Search every configured query and keep jobs not seen before (or errored and retryable)."""
+    """Search every query and keep jobs not seen before (or errored and retryable). Queries come
+    from config search.queries when set, else from the keywords generated from the resume."""
     cfg = settings["search"]
+    queries = cfg.get("queries") or matching.generate_keywords().search_queries
+    print(f"[entry] queries: {', '.join(queries)}")
     seen = store.load()
     jobs = {}
-    for query in cfg["queries"]:
+    for query in queries:
         try:
             found, warnings = search_jobs(query, cfg["location"], cfg["posted_within_hours"], cfg["max_jobs"])
         except LinkedInError as e:

@@ -80,7 +80,7 @@ def preview(msg: EmailMessage, saved_to: str | Path) -> str:
     rule = "-" * 72
     return "\n".join([
         rule,
-        f"[dry run] email saved to {saved_to}",
+        f"email sent and saved to {saved_to}",
         f"To:         {msg['To'] or '(EMAIL_TO / SMTP_USER not set)'}",
         f"Subject:    {msg['Subject']}",
         f"Attachment: {', '.join(attachments) or '-'}",

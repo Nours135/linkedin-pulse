@@ -7,10 +7,6 @@ llm:
   max_tokens: 16000
 
 search:
-  queries:               # one LinkedIn search per query; results are merged and deduped
-    - Software Engineer New Grad
-    - Backend Engineer
-    - Machine Learning Engineer
   location: United States
   posted_within_hours: 120  # LinkedIn-side window; keep it >= filter.max_age_days * 24
   max_jobs: 25           # per query
