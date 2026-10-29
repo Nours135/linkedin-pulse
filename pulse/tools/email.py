@@ -1,4 +1,4 @@
-"""Tool: generate the email body and send it, with the resume PDF, to yourself via SMTP."""
+"""Tool: generate the email body and send it, with the resume PDF, to the candidate via SMTP."""
 
 from __future__ import annotations
 
@@ -11,11 +11,11 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from pulse.config import settings, work_dir
+from pulse.candidates import Candidate
+from pulse.config import settings
 from pulse.tools.linkedin import Job
 from pulse.tools.matching import Match
 
-OUTBOX = work_dir / "outbox"
 SMTP_TIMEOUT = 30  # seconds; without it a stalled server hangs the whole heartbeat
 
 
@@ -24,17 +24,21 @@ def _one_line(s: str) -> str:
     return " ".join(s.split())
 
 
-def compose(job: Job, match: Match, resume: dict) -> EmailMessage:
-    """`resume` is the resume agent's result: {"ok", "pdf", "error", ...}."""
+def compose(cand: Candidate, job: Job, match: Match, resume: dict) -> EmailMessage:
+    """`resume` is the resume agent's result: {"ok", "pdf", "error", ...}. The candidate's slug is
+    in the subject and an X-Pulse-Candidate header, so a shared inbox can filter by candidate."""
     user = os.getenv("SMTP_USER", "")
     msg = EmailMessage()
-    msg["Subject"] = _one_line(f"[Pulse {match.score}] {job.title} @ {job.company}")
+    msg["Subject"] = _one_line(f"[Pulse {match.score} | {cand.name}] {job.title} @ {job.company}")
     msg["From"] = user
-    msg["To"] = os.getenv("EMAIL_TO") or user
+    msg["To"] = cand.email_to or os.getenv("EMAIL_TO") or user
     msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = make_msgid(domain="linkedin-pulse")
+    msg["X-Pulse-Candidate"] = cand.name
 
     lines = [
+        f"Candidate: {cand.name}",
+        "",
         f"{job.title} @ {job.company}",
         f"{job.location} | posted {job.posted_at}",
         job.url,
@@ -59,7 +63,7 @@ def compose(job: Job, match: Match, resume: dict) -> EmailMessage:
     if attach:
         name = re.sub(r"[^\w-]+", "_", job.company).strip("_") or job.id
         msg.add_attachment(Path(pdf).read_bytes(), maintype="application", subtype="pdf",
-                           filename=f"resume_{name}.pdf")
+                           filename=f"resume_{cand.name}_{name}.pdf")
     return msg
 
 
@@ -90,12 +94,13 @@ def preview(msg: EmailMessage, saved_to: str | Path) -> str:
     ])
 
 
-def send(msg: EmailMessage, job_id: str) -> str:
-    """Send via SMTP, or write work/outbox/<job_id>.eml and print it when email.dry_run is on.
-    Returns where it went."""
+def send(msg: EmailMessage, cand: Candidate, job_id: str) -> str:
+    """Send via SMTP, or write work/<candidate>/outbox/<job_id>.eml and print it when
+    email.dry_run is on. Returns where it went."""
     if settings.get("email", {}).get("dry_run", True):
-        OUTBOX.mkdir(parents=True, exist_ok=True)
-        path = OUTBOX / f"{job_id}.eml"
+        outbox = cand.work_dir / "outbox"
+        outbox.mkdir(parents=True, exist_ok=True)
+        path = outbox / f"{job_id}.eml"
         path.write_bytes(msg.as_bytes())
         tqdm.write(preview(msg, path))  # tqdm.write keeps the job progress bar intact
         return str(path)

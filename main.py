@@ -1,4 +1,5 @@
-"""Entry point: Python-driven heartbeat that runs the graph every config.heartbeat_minutes."""
+"""Entry point: Python-driven heartbeat that runs the graph for every candidate every
+config.heartbeat_minutes."""
 
 import argparse
 import os
@@ -7,6 +8,7 @@ import time
 import traceback
 from datetime import datetime
 
+from pulse import candidates
 from pulse.config import settings
 from pulse.graph import build_graph
 from pulse.tools import email
@@ -26,7 +28,16 @@ def check_pdflatex() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--once", action="store_true", help="run a single heartbeat and exit")
+    parser.add_argument("--candidate", action="append", metavar="NAME",
+                        help="only run this candidate from config.yaml (repeatable; default: all)")
     args = parser.parse_args()
+
+    cands = candidates.load()
+    if args.candidate:
+        unknown = set(args.candidate) - {c.name for c in cands}
+        if unknown:
+            raise SystemExit(f"unknown candidate(s): {', '.join(sorted(unknown))}")
+        cands = [c for c in cands if c.name in args.candidate]
 
     # fail fast instead of erroring (or silently losing resumes) on every job
     check_pdflatex()
@@ -34,14 +45,15 @@ def main() -> None:
     graph = build_graph()
     while True:
         print(f"=== heartbeat {datetime.now():%Y-%m-%d %H:%M:%S}")
-        try:
-            out = graph.invoke({})
-            for r in out.get("results", []):
-                score = f" {r['score']}" if "score" in r else ""
-                err = f" ({r['error']})" if r.get("error") else ""
-                print(f"[{r['status']}{score}] {r['title']} @ {r['company']} {r['url']}{err}")
-        except Exception:
-            traceback.print_exc()  # keep the heartbeat alive
+        for cand in cands:
+            try:
+                out = graph.invoke({"candidate": cand})
+                for r in out.get("results", []):
+                    score = f" {r['score']}" if "score" in r else ""
+                    err = f" ({r['error']})" if r.get("error") else ""
+                    print(f"[{cand.name} {r['status']}{score}] {r['title']} @ {r['company']} {r['url']}{err}")
+            except Exception:
+                traceback.print_exc()  # one candidate failing must not stop the others or the heartbeat
         if args.once:
             break
         time.sleep(settings["heartbeat_minutes"] * 60)

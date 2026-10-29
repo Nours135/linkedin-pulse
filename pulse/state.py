@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from typing import TypedDict
 
+from pulse.candidates import Candidate
 from pulse.tools.linkedin import Job
 
 
 class JobResult(TypedDict, total=False):
+    candidate: str       # candidate slug
     job_id: str
     title: str
     company: str
@@ -21,5 +23,6 @@ class JobResult(TypedDict, total=False):
 
 
 class PulseState(TypedDict, total=False):
+    candidate: Candidate        # whose run this is; the graph is invoked once per candidate
     jobs: list[Job]             # new, not-yet-processed jobs found by the entry node
     results: list[JobResult]    # one per job, filled by the job agent

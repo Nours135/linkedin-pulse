@@ -18,10 +18,11 @@ from pathlib import Path
 from langchain_core.tools import tool
 from tqdm import tqdm
 
+from pulse import candidates
+from pulse.candidates import Candidate
 from pulse.llm import LLMError, image, llm, pdf
 from pulse.tools.latex import (
-    LAYOUTS, SECTIONS, WORK_DIR, compile_resume, format_catalog, load_index, pdf_to_png,
-    validate_selection,
+    LAYOUTS, SECTIONS, compile_resume, format_catalog, load_index, pdf_to_png, validate_selection,
 )
 
 # Calibrated with pdflatex on the Jake's Resume template: experiences carry 3 one-line bullets,
@@ -94,10 +95,10 @@ Selections already tried (do not return one of these): {tried}
 """
 
 
-def system_prompt(index: dict | None = None) -> str:
+def system_prompt(cand: Candidate, index: dict | None = None) -> str:
     return SYSTEM_PROMPT.format(
         max_components=MAX_COMPONENTS, exp_h=EST_HEIGHT["experience"],
-        prj_h=EST_HEIGHT["projects"], catalog=format_catalog(index),
+        prj_h=EST_HEIGHT["projects"], catalog=format_catalog(cand, index),
     )
 
 
@@ -122,29 +123,29 @@ def _ask(content: list, system: str, index: dict, tag: str) -> dict[str, list[st
     raise LLMError(f"{tag}: no valid selection after retry: {error}")
 
 
-def _fit_layout(selection: dict, out_dir: Path) -> dict:
+def _fit_layout(cand: Candidate, selection: dict, out_dir: Path) -> dict:
     """Compile at layout 0; if it overflows by at most SQUEEZE_LIMIT, try tighter layouts.
     Returns the first one-page result, or the layout-0 result when squeezing can't help."""
-    first = compile_resume(selection, out_dir)
+    first = compile_resume(cand, selection, out_dir)
     if not first["ok"] or first["pages"] == 1 or first["fill"] - 1 > SQUEEZE_LIMIT:
         return first
     for level in range(1, len(LAYOUTS)):
-        result = compile_resume(selection, out_dir, layout=level)
+        result = compile_resume(cand, selection, out_dir, layout=level)
         if result["ok"] and result["pages"] == 1:
             return result
-    return compile_resume(selection, out_dir)  # leave the unsqueezed version on disk
+    return compile_resume(cand, selection, out_dir)  # leave the unsqueezed version on disk
 
 
-def tailor(job_id: str, jd: str, match: dict | str, out_dir: Path | None = None) -> dict:
-    """Run select + fit for one job. Returns the final compile result plus the selection and
-    a trace of the fit loop; ok is False only if nothing compiled to a single page."""
-    index = load_index()
-    out_dir = Path(out_dir or WORK_DIR / job_id)
-    system = system_prompt(index)
+def tailor(cand: Candidate, job_id: str, jd: str, match: dict | str, out_dir: Path | None = None) -> dict:
+    """Run select + fit of `cand`'s resume for one job. Returns the final compile result plus the
+    selection and a trace of the fit loop; ok is False only if nothing compiled to a single page."""
+    index = load_index(cand)
+    out_dir = Path(out_dir or cand.work_dir / job_id)
+    system = system_prompt(cand, index)
     match = match if isinstance(match, str) else json.dumps(match, indent=2)
 
     # one step for the select call, then one per fit round; nested under the job agent's bar
-    with tqdm(total=MAX_ROUNDS + 1, desc=f"  resume {job_id}", unit="step", leave=False) as bar:
+    with tqdm(total=MAX_ROUNDS + 1, desc=f"  resume {cand.name}/{job_id}", unit="step", leave=False) as bar:
         bar.set_postfix_str("selecting components")
         selection = _ask([SELECT_TASK.format(jd=jd, match=match)], system, index, "resume.select")
         bar.update()
@@ -154,7 +155,7 @@ def tailor(job_id: str, jd: str, match: dict | str, out_dir: Path | None = None)
 
         for _ in range(MAX_ROUNDS):
             bar.set_postfix_str("compiling")
-            result = _fit_layout(selection, out_dir)
+            result = _fit_layout(cand, selection, out_dir)
             if not result["ok"]:
                 raise LLMError(f"compile failed for {selection}: {result['error']}")
             trace.append({"selection": selection, "pages": result["pages"],
@@ -187,17 +188,21 @@ def tailor(job_id: str, jd: str, match: dict | str, out_dir: Path | None = None)
                 "error": "no selection fit on one page"}
     final_selection, final = best
     if result is not final:  # a later attempt overwrote the PDF; rebuild the chosen one
-        final = _fit_layout(final_selection, out_dir)
+        final = _fit_layout(cand, final_selection, out_dir)
     return {**final, "selection": final_selection, "trace": trace}
 
 
 # ---- LangChain tool for the job agent ----
 
 @tool
-def tailor_resume(job_id: str, jd: str, match: dict) -> dict:
-    """Build a one-page resume tailored to a job: pick the most relevant experiences and
-    projects for the JD and match result, then fit them to exactly one page. Returns the PDF
-    path, page fill, chosen keys and a trace of the fit loop."""
+def tailor_resume(candidate: str, job_id: str, jd: str, match: dict) -> dict:
+    """Build `candidate`'s one-page resume tailored to a job: pick their most relevant
+    experiences and projects for the JD and match result, then fit them to exactly one page.
+    Returns the PDF path, page fill, chosen keys and a trace of the fit loop."""
     if not re.fullmatch(r"[\w-]+", job_id):
         return {"ok": False, "error": f"invalid job_id {job_id!r}"}
-    return tailor(job_id, jd, match)
+    try:
+        cand = candidates.get(candidate)
+    except ValueError as e:
+        return {"ok": False, "error": str(e)}
+    return tailor(cand, job_id, jd, match)

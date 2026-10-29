@@ -1,6 +1,11 @@
 heartbeat_minutes: 30
-resume: assets/resume.json
-work_dir: work
+work_dir: work           # each candidate's jobs, keywords, outbox and resumes go in work/<name>/
+
+candidates:              # one entry per person; each has their own profile, inbox and job history
+  john-wang:
+    profile: assets/candidates/john-wang   # resume.json + components/<key>.tex
+    email_to: john.wang@example.com        # falls back to EMAIL_TO, then SMTP_USER
+    # queries: ["Backend Engineer"]        # optional; default: generated from the resume
 
 llm:
   model: claude-haiku-5-5   # any Claude model id

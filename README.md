@@ -100,9 +100,30 @@ python main.py --once
 
 Remove `--once` to keep the agent running in the background. Search queries, filters, score thresholds, and models are configured in `config.yaml`. 
 
-By default, emails are written to `work/outbox/` (dry run). To send real emails, set `email.dry_run: false` and fill in your SMTP settings in `.env`.
+By default, emails are written to `work/<candidate>/outbox/` (dry run). To send real emails, set `email.dry_run: false` and fill in your SMTP settings in `.env`.
 
-To use your own background profile, customize the content blocks in `assets/components/` and their indexes in `assets/resume.json`.
+### Multiple candidates
+
+Each candidate has their own profile, recipient and job history, so one instance can hunt for several people at once. List them under `candidates` in `config.yaml`:
+
+```yaml
+candidates:
+  john-wang:
+    profile: assets/candidates/john-wang   # resume.json + components/<key>.tex
+    email_to: john.wang@example.com
+  jane-doe:
+    profile: assets/candidates/jane-doe
+    email_to: jane@example.com
+    queries: ["Data Engineer New Grad"]    # optional; default: generated from the resume
+```
+
+To add someone, copy `assets/candidates/john-wang/` and edit their content blocks in `components/` and the index in `resume.json`. Every candidate gets their own search keywords, scoring and tailored resumes, and their state stays under `work/<name>/` (`jobs.json`, `keywords.json`, `outbox/`, `resumes/`). A job one candidate already saw is still new to another. Emails are tagged `[Pulse <score> | <name>]` and carry an `X-Pulse-Candidate` header, so a shared inbox can filter them.
+
+To run only some candidates, pass `--candidate`, which can be repeated:
+
+```bash
+python main.py --once --candidate john-wang
+```
 
 
 ## Team

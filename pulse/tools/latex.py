@@ -1,9 +1,10 @@
 """Tool: assemble a resume from component keys and compile it with pdflatex.
 
-Inputs live in assets/:
+Inputs, per candidate in their profile folder (see pulse.candidates):
   resume.json            index of components (section, dates, directions, summary)
   components/<key>.tex   copy-paste ready LaTeX for each component and fixed section
-  resume.tex.j2          Jake's Resume preamble and section skeleton
+and shared by every candidate:
+  assets/resume.tex.j2   Jake's Resume preamble and section skeleton
 
 A selection maps section -> ordered component keys, e.g.
   {"experience": ["stripe", "aws"], "projects": ["raft-kv"]}
@@ -24,13 +25,12 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from langchain_core.tools import tool
 
-from pulse.config import ROOT, settings, work_dir
+from pulse import candidates
+from pulse.candidates import Candidate
+from pulse.config import ROOT
 
 ASSETS_DIR = ROOT / "assets"
-COMPONENTS_DIR = ASSETS_DIR / "components"
-INDEX_PATH = ROOT / settings.get("resume", "assets/resume.json")
 TEMPLATE_NAME = "resume.tex.j2"
-WORK_DIR = work_dir
 
 SECTIONS = {"experience": "Experience", "projects": "Projects"}  # render order -> heading
 PDFLATEX_TIMEOUT = 60
@@ -56,12 +56,12 @@ _env = Environment(
 )
 
 
-def load_index(path: Path = INDEX_PATH) -> dict:
-    return json.loads(path.read_text())
+def load_index(cand: Candidate) -> dict:
+    return json.loads(cand.index_path.read_text())
 
 
-def _component_tex(key: str) -> str:
-    path = COMPONENTS_DIR / f"{key}.tex"
+def _component_tex(cand: Candidate, key: str) -> str:
+    path = cand.components_dir / f"{key}.tex"
     if not path.exists():
         raise ValueError(f"missing component file: {path.relative_to(ROOT)}")
     return path.read_text().rstrip()
@@ -77,16 +77,16 @@ def _items(tex: str) -> list[str]:
     return [_unescape(i) for i in re.findall(r"\\resumeItem\{(.*)\}\s*$", tex, flags=re.MULTILINE)]
 
 
-def bullets(key: str) -> list[str]:
+def bullets(cand: Candidate, key: str) -> list[str]:
     """Bullet text of a component, with LaTeX escapes undone for readability."""
-    return _items(_component_tex(key))
+    return _items(_component_tex(cand, key))
 
 
-def format_education() -> str:
+def format_education(cand: Candidate) -> str:
     """One line per school (school, location, degree, dates) followed by its bullets."""
     lines = []
     # each \resumeSubheading{school}{location}{degree}{dates} starts one school entry
-    for entry in _component_tex("education").split(r"\resumeSubheading")[1:]:
+    for entry in _component_tex(cand, "education").split(r"\resumeSubheading")[1:]:
         m = re.match(r"\s*\{(.*?)\}\{(.*?)\}\s*\{(.*?)\}\{(.*?)\}", entry)
         if not m:
             continue
@@ -95,9 +95,9 @@ def format_education() -> str:
     return "\n".join(lines)
 
 
-def format_catalog(index: dict | None = None) -> str:
+def format_catalog(cand: Candidate, index: dict | None = None) -> str:
     """Every component with key, dates, directions and its full bullets, grouped by section."""
-    index = index or load_index()
+    index = index or load_index(cand)
     lines = []
     for section, title in SECTIONS.items():
         lines.append(f"[{title}]")
@@ -106,14 +106,14 @@ def format_catalog(index: dict | None = None) -> str:
                 continue
             lines.append(f"- {key} | {c['title']} | {c['start']} to {c['end']} | "
                          f"directions: {', '.join(c['directions'])}")
-            lines.extend(f"    * {b}" for b in bullets(key))
+            lines.extend(f"    * {b}" for b in bullets(cand, key))
     return "\n".join(lines)
 
 
-def resume_text(index: dict | None = None) -> str:
+def resume_text(cand: Candidate, index: dict | None = None) -> str:
     """The whole candidate as one text block: education, component catalog and skills."""
-    return (f"[Education]\n{format_education()}\n\n{format_catalog(index)}\n\n"
-            f"[Skills]\n{_component_tex('skills')}")
+    return (f"[Education]\n{format_education(cand)}\n\n{format_catalog(cand, index)}\n\n"
+            f"[Skills]\n{_component_tex(cand, 'skills')}")
 
 
 def validate_selection(selection: dict[str, list[str]], index: dict) -> None:
@@ -137,16 +137,17 @@ def validate_selection(selection: dict[str, list[str]], index: dict) -> None:
         raise ValueError("; ".join(errors))
 
 
-def render_resume(selection: dict[str, list[str]], index: dict | None = None, layout: int = 0) -> str:
+def render_resume(cand: Candidate, selection: dict[str, list[str]], index: dict | None = None,
+                  layout: int = 0) -> str:
     """Return compile-ready LaTeX for a selection at a LAYOUTS level."""
-    index = index or load_index()
+    index = index or load_index(cand)
     validate_selection(selection, index)
     sections = [
-        {"title": title, "components": [_component_tex(k) for k in selection[name]]}
+        {"title": title, "components": [_component_tex(cand, k) for k in selection[name]]}
         for name, title in SECTIONS.items()
         if selection.get(name)
     ]
-    fixed = {name: _component_tex(name) for name in index["fixed"]}
+    fixed = {name: _component_tex(cand, name) for name in index["fixed"]}
     return _env.get_template(TEMPLATE_NAME).render(sections=sections, layout=LAYOUTS[layout], **fixed)
 
 
@@ -172,14 +173,15 @@ def _fill(log: str, pages: int) -> float | None:
     return min(fill, 1.0) if pages == 1 else fill
 
 
-def compile_resume(selection: dict[str, list[str]], out_dir: Path, layout: int = 0) -> dict:
+def compile_resume(cand: Candidate, selection: dict[str, list[str]], out_dir: Path,
+                   layout: int = 0) -> dict:
     """Write out_dir/resume.tex and compile it. Never raises on bad input or LaTeX errors;
     returns {"ok", "tex", "pdf", "pages", "fill", "layout", "error"} so the caller can retry."""
     out_dir = Path(out_dir)
     result = {"ok": False, "tex": None, "pdf": None, "pages": None, "fill": None,
               "layout": layout, "error": None}
     try:
-        tex = render_resume(selection, layout=layout)
+        tex = render_resume(cand, selection, layout=layout)
     except ValueError as e:
         result["error"] = str(e)
         return result
@@ -238,9 +240,13 @@ def pdf_to_png(pdf_path: Path, dpi: int = 100) -> list[Path]:
 # ---- LangChain tools for the agent ----
 
 @tool
-def build_resume(job_id: str, experience: list[str], projects: list[str]) -> dict:
-    """Assemble and compile a resume for `job_id` from component keys, in the given order.
-    Returns ok/pdf/pages, or an error message (unknown key, LaTeX error) to fix and retry."""
+def build_resume(candidate: str, job_id: str, experience: list[str], projects: list[str]) -> dict:
+    """Assemble and compile `candidate`'s resume for `job_id` from component keys, in the given
+    order. Returns ok/pdf/pages, or an error message (unknown key, LaTeX error) to fix and retry."""
     if not re.fullmatch(r"[\w-]+", job_id):
         return {"ok": False, "error": f"invalid job_id {job_id!r}"}
-    return compile_resume({"experience": experience, "projects": projects}, WORK_DIR / job_id)
+    try:
+        cand = candidates.get(candidate)
+    except ValueError as e:
+        return {"ok": False, "error": str(e)}
+    return compile_resume(cand, {"experience": experience, "projects": projects}, cand.work_dir / job_id)
