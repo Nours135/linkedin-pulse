@@ -1,3 +1,5 @@
+# Example config, committed. Copy it to config.yaml (gitignored) and list your own candidates;
+# pulse reads config.yaml and falls back to this file only when config.yaml is missing.
 heartbeat_minutes: 30
 work_dir: work           # each candidate's jobs, keywords, outbox and resumes go in work/<name>/
 
@@ -27,4 +29,4 @@ retry:
   max_attempts: 3        # a job that errored is retried on later heartbeats up to this many times
 
 email:
-  dry_run: true          # write work/outbox/<job_id>.eml instead of sending
+  dry_run: true          # write work/<candidate>/outbox/<job_id>.eml instead of sending

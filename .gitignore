@@ -6,3 +6,8 @@ __pycache__/
 pulse/tools/linkedin_results/
 uv.lock
 *.egg-info/
+assets/resumes/*
+# local config and personal candidate profiles; john-wang stays as the committed example
+config.yaml
+assets/candidates/*
+!assets/candidates/john-wang/

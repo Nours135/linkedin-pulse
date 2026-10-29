@@ -3,6 +3,7 @@
     from pulse.llm import llm, image, pdf
     text = llm.complete("Summarize this JD", system="...")
     text = llm.complete(["What does this screenshot show?", image("shot.png")])
+    match = llm.parse(prompt, Match, tag="match.score")   # reply validated into a pydantic model
 
 - Inputs: a str, a content block, or a list mixing both. image()/pdf() accept a path, URL or bytes.
 - Cache: identical requests are served from work/llm_cache/ (pass cache=False to skip);
@@ -22,12 +23,16 @@ import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import TypeVar
 
 import anthropic
+from pydantic import BaseModel, ValidationError
 
 from pulse.config import settings, work_dir as WORK_DIR
 
 log = logging.getLogger(__name__)
+
+M = TypeVar("M", bound=BaseModel)
 
 LLM_SETTINGS = settings.get("llm", {})
 DEFAULT_MODEL = LLM_SETTINGS.get("model", "claude-haiku-5-5")
@@ -168,6 +173,16 @@ class LLM:
         if text.startswith("```"):
             text = text.split("\n", 1)[1].rsplit("```", 1)[0]
         return json.loads(text)
+
+    def parse(self, prompt: str | dict | list, output_format: type[M], **kwargs) -> M:
+        """complete() with the reply constrained to output_format's JSON schema, validated into it."""
+        schema = anthropic.transform_schema(output_format.model_json_schema())
+        text = self.complete(prompt, output_config={"format": {"type": "json_schema", "schema": schema}},
+                             **kwargs)
+        try:
+            return output_format.model_validate_json(text)
+        except ValidationError as e:
+            raise LLMError(f"{kwargs.get('tag', '')}: reply does not match {output_format.__name__}: {e}") from e
 
     def _log(self, model: str, tag: str, usage, latency: float, cached: bool, **extra) -> None:
         rec = {"ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),

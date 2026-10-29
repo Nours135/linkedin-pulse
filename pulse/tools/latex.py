@@ -67,9 +67,20 @@ def _component_tex(cand: Candidate, key: str) -> str:
     return path.read_text().rstrip()
 
 
+# Unicode symbols pdflatex cannot typeset directly -> math-mode LaTeX. The importer writes
+# these into components, and _unescape maps them back so LLM prompts read naturally.
+TEX_SYMBOLS = {
+    "\u223c": r"$\sim$", "\u2248": r"$\approx$", "\u2192": r"$\rightarrow$", "\u00d7": r"$\times$",
+    "\u2265": r"$\geq$", "\u2264": r"$\leq$", "\u00b1": r"$\pm$", "\u2022": r"$\bullet$",
+    "\u2026": r"\ldots{}",
+}
+
+
 # ---- Plain-text views of the resume for LLM prompts ----
 
 def _unescape(tex: str) -> str:
+    for symbol, macro in TEX_SYMBOLS.items():
+        tex = tex.replace(macro, symbol)
     return re.sub(r"\\([%&$#_])", r"\1", tex).replace("--", "-")
 
 

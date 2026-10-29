@@ -92,13 +92,17 @@ pip install -e .
 cp .env.example .env
 ```
 
+```bash
+cp config.example.yaml config.yaml
+```
+
 Insert your `ANTHROPIC_API_KEY` into `.env`, then run a single heartbeat test:
 
 ```bash
 python main.py --once
 ```
 
-Remove `--once` to keep the agent running in the background. Search queries, filters, score thresholds, and models are configured in `config.yaml`. 
+Remove `--once` to keep the agent running in the background. Search queries, filters, score thresholds, and models are configured in `config.yaml`, your local copy of `config.example.yaml`. It is gitignored, as are the profiles in `assets/candidates/` other than the `john-wang` example, so personal details stay out of the repo. Without a `config.yaml`, the example config is used. 
 
 By default, emails are written to `work/<candidate>/outbox/` (dry run). To send real emails, set `email.dry_run: false` and fill in your SMTP settings in `.env`.
 
@@ -117,13 +121,27 @@ candidates:
     queries: ["Data Engineer New Grad"]    # optional; default: generated from the resume
 ```
 
-To add someone, copy `assets/candidates/john-wang/` and edit their content blocks in `components/` and the index in `resume.json`. Every candidate gets their own search keywords, scoring and tailored resumes, and their state stays under `work/<name>/` (`jobs.json`, `keywords.json`, `outbox/`, `resumes/`). A job one candidate already saw is still new to another. Emails are tagged `[Pulse <score> | <name>]` and carry an `X-Pulse-Candidate` header, so a shared inbox can filter them.
+To add someone, import their resume PDF (below), or copy `assets/candidates/john-wang/` and edit their content blocks in `components/` and the index in `resume.json`. Every candidate gets their own search keywords, scoring and tailored resumes, and their state stays under `work/<name>/` (`jobs.json`, `keywords.json`, `outbox/`, `resumes/`). A job one candidate already saw is still new to another. Emails are tagged `[Pulse <score> | <name>]` and carry an `X-Pulse-Candidate` header, so a shared inbox can filter them.
 
 To run only some candidates, pass `--candidate`, which can be repeated:
 
 ```bash
 python main.py --once --candidate john-wang
 ```
+
+### Importing a resume PDF
+
+```bash
+python -m pulse.importer jane.pdf --name jane-doe
+```
+
+Claude reads the PDF and extracts plain text into a fixed schema, copying every bullet verbatim. The LaTeX is then rendered from the templates in `assets/component_templates/`, so imported profiles have the same structure as hand-written ones. Sections other than work experience (leadership, awards, publications, ...) become projects.
+
+The new profile is installed to `assets/candidates/<name>/` only after these checks pass:
+- Every bullet parses back from its `.tex` file.
+- All components compile together. A preview is written to `work/<name>/import/preview/`.
+
+Bullets that can't be found in the PDF's own text are reported as warnings to review. This check needs Ghostscript and is skipped without it. An existing profile is never overwritten, and `config.yaml` is not modified: the importer prints the entry to add.
 
 
 ## Team

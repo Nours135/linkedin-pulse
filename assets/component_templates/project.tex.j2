@@ -1,0 +1,10 @@
+(# One project component; role is the tech stack (or role line) shown after the name. #)
+    \resumeProjectHeading
+      {\textbf{(( name ))}(( (' $|$ \\emph{' ~ role ~ '}') if role else '' ))}{(( dates ))}
+(% if bullets %)
+      \resumeItemListStart
+(% for b in bullets %)
+        \resumeItem{(( b ))}
+(% endfor %)
+      \resumeItemListEnd
+(% endif %)

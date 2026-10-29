@@ -7,14 +7,12 @@ import hashlib
 import json
 import re
 from functools import lru_cache
-from typing import TypeVar
 
-import anthropic
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field
 
 from pulse.candidates import Candidate
 from pulse.config import ROOT
-from pulse.llm import LLMError, llm
+from pulse.llm import llm
 from pulse.tools import latex
 from pulse.tools.linkedin import Job
 
@@ -70,20 +68,6 @@ Candidate resume:
 """
 
 
-M = TypeVar("M", bound=BaseModel)
-
-
-def _parse(prompt: str, output_format: type[M], tag: str) -> M:
-    """Ask with the reply constrained to output_format's JSON schema, then validate into it."""
-    schema = anthropic.transform_schema(output_format.model_json_schema())
-    text = llm.complete(prompt, tag=tag,
-                        output_config={"format": {"type": "json_schema", "schema": schema}})
-    try:
-        return output_format.model_validate_json(text)
-    except ValidationError as e:
-        raise LLMError(f"{tag}: reply does not match {output_format.__name__}: {e}") from e
-
-
 @lru_cache
 def resume_text(cand: Candidate) -> str:
     return latex.resume_text(cand)
@@ -104,7 +88,7 @@ def generate_keywords(cand: Candidate) -> Keywords:
         why = f"missing {', '.join(sorted(missing))}" if missing else "resume changed"
         print(f"[keywords] {path.relative_to(ROOT)}: {why}; regenerating")
 
-    kw = _parse(KEYWORDS_PROMPT.format(resume=resume_text(cand)), Keywords, "match.keywords")
+    kw = llm.parse(KEYWORDS_PROMPT.format(resume=resume_text(cand)), Keywords, tag="match.keywords")
     kw.search_queries = [q.strip() for q in kw.search_queries if q.strip()]
     kw.include = [k.lower().strip() for k in kw.include if k.strip()]
     kw.exclude_title = [k.lower().strip() for k in kw.exclude_title if k.strip()]
@@ -131,9 +115,9 @@ def keyword_hits(text: str, kw: Keywords) -> list[str]:
 
 
 def score_match(job: Job, cand: Candidate) -> Match:
-    m = _parse(SCORE_PROMPT.format(
+    m = llm.parse(SCORE_PROMPT.format(
         title=job.title, company=job.company, location=job.location,
         description=job.description, resume=resume_text(cand),
-    ), Match, "match.score")
+    ), Match, tag="match.score")
     m.score = max(0, min(100, m.score))
     return m

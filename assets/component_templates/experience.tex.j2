@@ -1,0 +1,11 @@
+(# One experience component; same shape as the hand-written ones. Values arrive LaTeX-escaped. #)
+    \resumeSubheading
+      {(( name ))}{(( location ))}
+      {(( role ))}{(( dates ))}
+(% if bullets %)
+      \resumeItemListStart
+(% for b in bullets %)
+        \resumeItem{(( b ))}
+(% endfor %)
+      \resumeItemListEnd
+(% endif %)

@@ -1,0 +1,16 @@
+(# Fixed education section; latex.format_education parses the \resumeSubheading lines back. #)
+\section{Education}
+  \resumeSubHeadingListStart
+(% for s in schools %)
+    \resumeSubheading
+      {(( s.school ))}{(( s.location ))}
+      {(( s.degree ))}{(( s.dates ))}
+(% if s.bullets %)
+      \resumeItemListStart
+(% for b in s.bullets %)
+        \resumeItem{(( b ))}
+(% endfor %)
+      \resumeItemListEnd
+(% endif %)
+(% endfor %)
+  \resumeSubHeadingListEnd

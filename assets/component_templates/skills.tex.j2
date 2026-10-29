@@ -1,0 +1,9 @@
+(# Fixed skills section: one bold category per line. #)
+\section{Technical Skills}
+ \begin{itemize}[leftmargin=0.15in, label={}]
+    \small{\item{
+(% for g in groups %)
+     \textbf{(( g.category ))}{: (( g.skills ))}(( '' if loop.last else ' \\\\' ))
+(% endfor %)
+    }}
+ \end{itemize}
