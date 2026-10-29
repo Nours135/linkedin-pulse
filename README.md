@@ -140,6 +140,14 @@ match:
     exclude: ["CitizenOnly"]      # drop jobs with any of these tags
 ```
 
+### Web UI
+
+```bash
+python -m pulse.web
+```
+
+Open http://127.0.0.1:8765 to see every recorded job in a table: score, tags, pipeline outcome, a link to the posting and the tailored resume PDF, plus the match reasons and job description under "details". You can set your own status for each job (`new`, `applied`, `oa`, `interviewing`, `offer`, `rejected`, `skipped`) and keep notes. These go to `work/<candidate>/tracking.json`, separate from the pipeline's `jobs.json`, so the UI can stay open while the heartbeat runs. The server has no auth and listens on localhost by default. Change that with `--host` / `--port`.
+
 ### Importing a resume PDF
 
 ```bash

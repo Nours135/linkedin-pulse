@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>linkedin-pulse</title>
+<style>
+  :root {
+    --bg: #f7f7f8; --panel: #fff; --text: #1d1d1f; --muted: #6e6e73; --border: #e3e3e6;
+    --accent: #0a66c2; --hover: #f0f4fa;
+    --good: #1a7f37; --mid: #9a6700; --bad: #b42318;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161618; --panel: #1f1f22; --text: #ececf0; --muted: #9a9aa2; --border: #33333a;
+      --accent: #5aa7ff; --hover: #262a33;
+      --good: #4ac26b; --mid: #d4a72c; --bad: #ff7b72;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  header { padding: 16px 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+           border-bottom: 1px solid var(--border); background: var(--panel); position: sticky; top: 0; z-index: 2; }
+  header h1 { font-size: 16px; margin: 0 12px 0 0; }
+  select, input, textarea, button { font: inherit; color: inherit; background: var(--bg);
+           border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; }
+  input[type=search] { min-width: 200px; }
+  .counts { color: var(--muted); font-size: 13px; margin-left: auto; }
+  .counts b { color: var(--text); font-weight: 600; }
+  main { padding: 16px 20px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel);
+          border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted);
+       cursor: pointer; user-select: none; white-space: nowrap; }
+  th.sorted::after { content: attr(data-dir); margin-left: 4px; }
+  tr.job:hover { background: var(--hover); }
+  td.title { min-width: 220px; }
+  td.nowrap { white-space: nowrap; }
+  td.title a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  td.title .co { color: var(--muted); }
+  .score { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .s-good { color: var(--good); } .s-mid { color: var(--mid); } .s-bad { color: var(--bad); }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 6px; margin: 1px 2px 1px 0;
+         border-radius: 10px; border: 1px solid var(--border); color: var(--muted); }
+  .pipe { color: var(--muted); font-size: 12px; }
+  td.notes textarea { width: 100%; min-width: 180px; min-height: 32px; resize: vertical; }
+  .saved { color: var(--good); font-size: 11px; height: 14px; }
+  button.link { border: 0; background: none; color: var(--accent); padding: 0; cursor: pointer; }
+  tr.detail td { background: var(--bg); }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .detail-grid ul { margin: 4px 0; padding-left: 18px; }
+  .desc { white-space: pre-wrap; max-height: 360px; overflow: auto; font-size: 13px;
+          border: 1px solid var(--border); border-radius: 6px; padding: 8px; background: var(--panel); }
+  .empty { padding: 40px; text-align: center; color: var(--muted); }
+  @media (max-width: 800px) { .detail-grid { grid-template-columns: 1fr; } .hide-sm { display: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>linkedin-pulse</h1>
+  <select id="cand" title="Candidate"></select>
+  <select id="view" title="Which jobs">
+    <option value="sent">Matched (resume sent)</option>
+    <option value="scored">All scored</option>
+    <option value="all">All recorded</option>
+  </select>
+  <select id="trackFilter" title="My status"><option value="">Any status</option></select>
+  <input id="q" type="search" placeholder="Search title, company, notes…">
+  <span class="counts" id="counts"></span>
+</header>
+<main>
+  <table>
+    <thead><tr>
+      <th data-key="score">Score</th>
+      <th data-key="title">Job</th>
+      <th data-key="location" class="hide-sm">Location</th>
+      <th data-key="posted_at">Posted</th>
+      <th>Tags</th>
+      <th data-key="status" class="hide-sm">Pipeline</th>
+      <th>Resume</th>
+      <th data-key="track_status">My status</th>
+      <th>Notes</th>
+    </tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const store = {  // per-browser UI prefs; the page works without them
+  get(k, d) { try { return localStorage.getItem("pulse." + k) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("pulse." + k, v); } catch {} },
+};
+let jobs = [], statuses = [], sortKey = "score", sortDir = -1, openId = null;
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const scoreClass = s => s == null ? "" : s >= 70 ? "s-good" : s >= 40 ? "s-mid" : "s-bad";
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  const body = await r.json();
+  if (!r.ok) throw new Error(body.error || r.statusText);
+  return body;
+}
+
+async function init() {
+  const meta = await api("/api/candidates");
+  statuses = meta.statuses;
+  $("#cand").innerHTML = meta.candidates.map(c => `<option>${esc(c)}</option>`).join("");
+  $("#trackFilter").innerHTML += statuses.map(s => `<option>${s}</option>`).join("");
+  $("#cand").value = store.get("cand", meta.candidates[0]);
+  if (!$("#cand").value) $("#cand").value = meta.candidates[0];
+  $("#view").value = store.get("view", "sent");
+  $("#trackFilter").value = store.get("track", "");
+  for (const id of ["cand", "view", "trackFilter"]) $("#" + id).onchange = () => {
+    store.set("cand", $("#cand").value); store.set("view", $("#view").value);
+    store.set("track", $("#trackFilter").value);
+    id === "cand" ? load() : render();
+  };
+  $("#q").oninput = render;
+  document.querySelectorAll("th[data-key]").forEach(th => th.onclick = () => {
+    const k = th.dataset.key;
+    sortDir = sortKey === k ? -sortDir : (k === "score" || k === "posted_at" ? -1 : 1);
+    sortKey = k; render();
+  });
+  await load();
+}
+
+async function load() {
+  jobs = await api(`/api/jobs?candidate=${encodeURIComponent($("#cand").value)}`);
+  openId = null; render();
+}
+
+function visible() {
+  const view = $("#view").value, tf = $("#trackFilter").value, q = $("#q").value.trim().toLowerCase();
+  return jobs.filter(j =>
+    (view === "all" || (view === "sent" ? j.status === "sent" : j.score != null)) &&
+    (!tf || j.track_status === tf) &&
+    (!q || [j.title, j.company, j.location, j.notes, ...j.tags].join(" ").toLowerCase().includes(q))
+  ).sort((a, b) => {
+    const x = a[sortKey] ?? "", y = b[sortKey] ?? "";
+    return (x < y ? -1 : x > y ? 1 : 0) * sortDir;
+  });
+}
+
+function render() {
+  document.querySelectorAll("th[data-key]").forEach(th => {
+    th.classList.toggle("sorted", th.dataset.key === sortKey);
+    th.dataset.dir = sortDir < 0 ? "▼" : "▲";
+  });
+  const rows = visible(), cand = encodeURIComponent($("#cand").value);
+  const counts = {};
+  for (const j of jobs) if (j.status === "sent") counts[j.track_status] = (counts[j.track_status] || 0) + 1;
+  $("#counts").innerHTML = `${rows.length} shown · matched: ` +
+    (statuses.filter(s => counts[s]).map(s => `${s} <b>${counts[s]}</b>`).join(" · ") || "none");
+
+  if (!rows.length) { $("#rows").innerHTML = `<tr><td colspan="9" class="empty">No jobs match.</td></tr>`; return; }
+  $("#rows").innerHTML = rows.map(j => `
+    <tr class="job" data-id="${esc(j.id)}">
+      <td class="score ${scoreClass(j.score)}">${j.score ?? "–"}</td>
+      <td class="title"><a href="${esc(j.url)}" target="_blank" rel="noopener">${esc(j.title)}</a><br>
+        <span class="co">${esc(j.company)}</span>
+        · <button class="link" data-act="detail">${openId === j.id ? "hide" : "details"}</button></td>
+      <td class="hide-sm">${esc(j.location)}</td>
+      <td class="nowrap">${esc(j.posted_at)}</td>
+      <td>${j.tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</td>
+      <td class="pipe hide-sm">${esc(j.status)}${j.reason ? `<br>${esc(j.reason)}` : ""}${j.error ? `<br>${esc(j.error)}` : ""}</td>
+      <td>${j.has_resume ? `<a href="/resume?candidate=${cand}&id=${encodeURIComponent(j.id)}" target="_blank">PDF</a>` : ""}</td>
+      <td><select data-act="status">${statuses.map(s =>
+        `<option${s === j.track_status ? " selected" : ""}>${s}</option>`).join("")}</select></td>
+      <td class="notes"><textarea data-act="notes" placeholder="Add a note…">${esc(j.notes)}</textarea>
+        <div class="saved"></div></td>
+    </tr>${openId === j.id ? `<tr class="detail"><td colspan="9" id="detail">Loading…</td></tr>` : ""}`).join("");
+  if (openId) showDetail(openId);
+}
+
+async function save(id, patch, tr) {
+  const msg = tr.querySelector(".saved");
+  try {
+    const entry = await api("/api/track", { method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({candidate: $("#cand").value, job_id: id, ...patch}) });
+    const j = jobs.find(j => j.id === id);
+    j.track_status = entry.status; j.notes = entry.notes; j.track_updated_at = entry.updated_at;
+    msg.textContent = "saved";
+    setTimeout(() => msg.textContent = "", 1500);
+  } catch (e) { msg.textContent = "save failed: " + e.message; }
+}
+
+async function showDetail(id) {
+  const rec = await api(`/api/job?candidate=${encodeURIComponent($("#cand").value)}&id=${encodeURIComponent(id)}`);
+  const m = rec.match || {}, list = xs => (xs || []).length ? `<ul>${xs.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : "<p>–</p>";
+  const cell = $("#detail");
+  if (!cell) return;
+  cell.innerHTML = `<div class="detail-grid">
+    <div><b>Why ${rec.score ?? ""}</b>${list(m.reasons)}
+      <b>Matched</b>${list(m.matched)}<b>Missing</b>${list(m.missing)}
+      ${m.work_auth_quote ? `<b>Work auth</b><p>${esc(m.work_auth_quote)}</p>` : ""}</div>
+    <div><b>Description</b><div class="desc">${esc(rec.description || "(not fetched)")}</div></div></div>`;
+}
+
+$("#rows").addEventListener("click", e => {
+  if (e.target.dataset.act !== "detail") return;
+  const id = e.target.closest("tr").dataset.id;
+  openId = openId === id ? null : id; render();
+});
+$("#rows").addEventListener("change", e => {
+  const tr = e.target.closest("tr.job");
+  if (e.target.dataset.act === "status") save(tr.dataset.id, {status: e.target.value}, tr);
+  if (e.target.dataset.act === "notes") save(tr.dataset.id, {notes: e.target.value}, tr);  // fires on blur
+});
+
+init().catch(e => $("#rows").innerHTML = `<tr><td colspan="9" class="empty">${esc(e.message)}</td></tr>`);
+</script>
+</body>
+</html>

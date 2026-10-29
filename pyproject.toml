@@ -16,3 +16,6 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 include = ["pulse*"]
+
+[tool.setuptools.package-data]
+"pulse.web" = ["index.html"]
