@@ -129,6 +129,17 @@ To run only some candidates, pass `--candidate`, which can be repeated:
 python main.py --once --candidate john-wang
 ```
 
+### Tags
+
+While scoring, Claude also tags each job with its type (`27NG`, `27Summer`, `27Intern`, `PartTime`; the year is the one the posting targets) and any explicit work-authorization restriction (`CitizenOnly`, `NoSponsor`). Tags appear at the top of the email body and in `jobs.json`. To filter on them, set `match.tags` in `config.yaml`, or `tags` on a candidate to override it:
+
+```yaml
+match:
+  tags:
+    include: ["*NG", "*Summer"]   # keep only these job types (case-insensitive globs); empty keeps all
+    exclude: ["CitizenOnly"]      # drop jobs with any of these tags
+```
+
 ### Importing a resume PDF
 
 ```bash

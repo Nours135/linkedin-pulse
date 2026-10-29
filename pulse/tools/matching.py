@@ -6,7 +6,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from fnmatch import fnmatchcase
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -28,6 +30,23 @@ class Match(BaseModel):
     reasons: list[str] = Field(description="2-4 short sentences explaining the score")
     matched: list[str] = Field(description="required skills the candidate has")
     missing: list[str] = Field(description="required skills the candidate lacks")
+    job_type: Literal["new_grad", "summer_intern", "intern", "part_time", "other"] = Field(
+        description="new_grad: entry-level role for recent/upcoming graduates; summer_intern: summer "
+                    "internship; intern: other internship or co-op; part_time: part-time role; other: none of these")
+    cohort_year: int | None = Field(
+        description="graduation or internship year the posting targets, e.g. 2027; null if not stated")
+    work_auth: Literal["citizenship_required", "no_sponsorship", "not_stated"] = Field(
+        description="citizenship_required: requires US citizenship (incl. clearance that needs it); "
+                    "no_sponsorship: will not sponsor visas; not_stated: neither is stated explicitly")
+    work_auth_quote: str = Field(description="the posting's exact sentence behind work_auth; empty if not_stated")
+
+    def tags(self) -> list[str]:
+        """Short labels for the email body, logs and tag filter, e.g. ["27NG", "NoSponsor"]."""
+        yy = f"{self.cohort_year % 100:02d}" if self.cohort_year else ""
+        kind = {"new_grad": f"{yy}NG", "summer_intern": f"{yy}Summer", "intern": f"{yy}Intern",
+                "part_time": "PartTime"}.get(self.job_type)
+        auth = {"citizenship_required": "CitizenOnly", "no_sponsorship": "NoSponsor"}.get(self.work_auth)
+        return [t for t in (kind, auth) if t]
 
 
 KEYWORDS_PROMPT = """\
@@ -58,6 +77,14 @@ Score how well this candidate fits the job, from 0 to 100.
 Judge required qualifications more heavily than nice-to-haves. A required security clearance,
 US citizenship requirement, or "no visa sponsorship" is out of reach unless the resume shows the
 candidate meets it: cap the score at 39 and name the requirement in the reasons.
+
+Also classify the posting:
+- job_type and cohort_year: e.g. "Software Engineer, New Grad 2027" is new_grad / 2027 and
+  "Summer 2027 SWE Intern" is summer_intern / 2027. Use the year the posting targets, not the
+  posting date; null if no year is stated.
+- work_auth: only what the posting says explicitly. If it both requires citizenship and refuses
+  sponsorship, use citizenship_required. Equal-opportunity boilerplate or "must be authorized to
+  work in the US" alone is not_stated. Quote the sentence in work_auth_quote.
 
 Job: {title} at {company} ({location})
 Description:
@@ -112,6 +139,19 @@ def title_excluded(title: str, kw: Keywords) -> bool:
 def keyword_hits(text: str, kw: Keywords) -> list[str]:
     text = text.lower()
     return [k for k in kw.include if _contains(text, k)]
+
+
+def tag_rejected(tags: list[str], include: tuple[str, ...], exclude: tuple[str, ...]) -> str | None:
+    """Why a job with these tags is filtered out, or None to keep it. Patterns are case-insensitive
+    globs, so "*NG" matches any new-grad year. include: keep only jobs with a tag matching one of
+    them (empty keeps all); exclude: drop jobs with a tag matching any of them."""
+    def hit(patterns: tuple[str, ...]) -> list[str]:
+        return [t for t in tags if any(fnmatchcase(t.lower(), p.lower()) for p in patterns)]
+    if bad := hit(exclude):
+        return f"tags {', '.join(bad)} excluded"
+    if include and not hit(include):
+        return f"tags [{', '.join(tags)}] match none of include"
+    return None
 
 
 def score_match(job: Job, cand: Candidate) -> Match:

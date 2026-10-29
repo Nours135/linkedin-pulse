@@ -1,4 +1,4 @@
-"""Job polling agent: age/title filter -> keyword pre-filter -> match scoring -> resume agent -> email.
+"""Job polling agent: age/title filter -> keyword pre-filter -> match scoring + tag filter -> resume agent -> email.
 Fixed pipeline; the LLM is only used for keyword generation and match scoring.
 Every outcome is recorded in pulse.store."""
 
@@ -23,6 +23,8 @@ RESUME_SUMMARY = ("selection", "pages", "fill", "layout")
 def _done(cand: Candidate, job: Job, status: str, **info) -> JobResult:
     store.record(cand, job, status, **info)
     shown = {k: info[k] for k in ("reason", "score", "sent_to", "error") if k in info}
+    if "match" in info:
+        shown["tags"] = matching.Match.model_validate(info["match"]).tags()
     if "resume_pdf" in info:
         shown["pdf"] = info["resume_pdf"]
     return JobResult(candidate=cand.name, job_id=job.id, title=job.title, company=job.company,
@@ -69,6 +71,8 @@ def process_job(cand: Candidate, job: Job, kw: matching.Keywords) -> JobResult:
         return _done(cand, job, "filtered", reason=f"{len(hits)} keyword hits", hits=hits)
 
     match = matching.score_match(job, cand)
+    if why := matching.tag_rejected(match.tags(), cand.tags_include, cand.tags_exclude):
+        return _done(cand, job, "filtered", reason=why, hits=hits, score=match.score, match=match.model_dump())
     if match.score < cfg["min_score"]:
         return _done(cand, job, "low_score", hits=hits, score=match.score, match=match.model_dump())
 

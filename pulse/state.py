@@ -17,6 +17,7 @@ class JobResult(TypedDict, total=False):
     status: str          # filtered | low_score | sent | error
     reason: str          # why it was filtered
     score: int
+    tags: list[str]      # job type and work-auth labels from scoring, e.g. ["27NG", "NoSponsor"]
     pdf: str | None
     sent_to: str         # email address, or the .eml path in dry-run mode
     error: str | None

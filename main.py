@@ -50,6 +50,7 @@ def main() -> None:
                 out = graph.invoke({"candidate": cand})
                 for r in out.get("results", []):
                     score = f" {r['score']}" if "score" in r else ""
+                    score += "".join(f" {t}" for t in r.get("tags", []))
                     err = f" ({r['error']})" if r.get("error") else ""
                     print(f"[{cand.name} {r['status']}{score}] {r['title']} @ {r['company']} {r['url']}{err}")
             except Exception:

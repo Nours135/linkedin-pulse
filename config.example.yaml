@@ -24,6 +24,11 @@ filter:                  # applied by the job agent before any JD fetch or LLM c
 match:
   min_keyword_hits: 3    # keyword pre-filter on the JD, before any LLM call
   min_score: 70          # skip resume/email below this score
+  tags:                  # filter on the tags Claude assigns while scoring; a candidate's own `tags` overrides each key
+    # job type: <yy>NG, <yy>Summer, <yy>Intern (yy = target year, omitted if unstated), PartTime
+    # work authorization: CitizenOnly, NoSponsor
+    include: []          # keep only jobs with a tag matching one of these, e.g. ["27NG", "*Summer"]; empty keeps all
+    exclude: []          # drop jobs with a tag matching any of these, e.g. ["CitizenOnly", "NoSponsor"]
 
 retry:
   max_attempts: 3        # a job that errored is retried on later heartbeats up to this many times

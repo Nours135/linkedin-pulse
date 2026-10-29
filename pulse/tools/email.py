@@ -37,6 +37,9 @@ def compose(cand: Candidate, job: Job, match: Match, resume: dict) -> EmailMessa
     msg["X-Pulse-Candidate"] = cand.name
 
     lines = [
+        f"Tags: {', '.join(match.tags()) or '-'}",
+        *([f'Work authorization: "{match.work_auth_quote}"'] if match.work_auth_quote else []),
+        "",
         f"Candidate: {cand.name}",
         "",
         f"{job.title} @ {job.company}",
