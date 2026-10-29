@@ -102,7 +102,9 @@ Insert your `ANTHROPIC_API_KEY` into `.env`, then run a single heartbeat test:
 python main.py --once
 ```
 
-Remove `--once` to keep the agent running in the background. Search queries, filters, score thresholds, and models are configured in `config.yaml`, your local copy of `config.example.yaml`. It is gitignored, as are the profiles in `assets/candidates/` other than the `john-wang` example, so personal details stay out of the repo. Without a `config.yaml`, the example config is used. 
+Remove `--once` to keep the agent running in the background. Search queries, filters, score thresholds, and models are configured in `config.yaml`, your local copy of `config.example.yaml`. It is gitignored, as are the profiles in `assets/candidates/` other than the `john-wang` example, so personal details stay out of the repo. Without a `config.yaml`, the example config is used.
+
+Each heartbeat runs every search query (6-8 generated from the resume by default) in every entry of `search.locations` (the whole United States by default), paging newest first until `search.max_jobs` (1000, the most LinkedIn's guest API returns for one search) or until a whole page was already seen on an earlier run, so a steady heartbeat only fetches a page or two per search. LinkedIn's guest API ignores the experience-level and remote filters, so seniority is handled by the title filter and Claude's scoring instead. 
 
 By default, emails are written to `work/<candidate>/outbox/` (dry run). To send real emails, set `email.dry_run: false` and fill in your SMTP settings in `.env`.
 

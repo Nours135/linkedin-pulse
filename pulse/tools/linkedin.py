@@ -28,6 +28,7 @@ HEADERS = {
     "Accept-Language": "en-US,en;q=0.9",
 }
 PAGE_DELAY = 1.0  # pause between pages to lower the chance of rate limiting
+MAX_START = 1000  # the guest API answers HTTP 400 from this offset on, so one search sees at most 1000 jobs
 
 RESULTS_DIR = Path(__file__).parent / "linkedin_results"
 SEARCHES_DIR = RESULTS_DIR / "searches"
@@ -111,12 +112,18 @@ def search_jobs(
     location: str = "United States",
     posted_within_hours: int = 24,
     max_jobs: int = 25,
+    known_ids: set[str] | frozenset[str] = frozenset(),
     save: bool = True,
 ) -> tuple[list[Job], list[str]]:
     """Search jobs for `keywords` posted in the last `posted_within_hours`, newest first.
 
+    Paging stops at `max_jobs`, or after a page whose cards are all in `known_ids`: results are
+    newest first, so everything below that was seen on an earlier run. A single known card does
+    not stop it, since promoted jobs can show up out of date order.
+
     Returns (jobs, warnings). Raises LinkedInError if the first page fails; a failure on a
     later page stops paging and is reported as a warning alongside the partial results.
+    Note: the guest API ignores the f_E (experience) and f_WT (remote) filters, so they are not sent.
     """
     if not keywords.strip():
         raise ValueError("keywords must not be empty")
@@ -134,7 +141,7 @@ def search_jobs(
     warnings: list[str] = []
     bad_cards = 0
     now = datetime.now()
-    while len(jobs) < max_jobs:
+    while len(jobs) < max_jobs and params["start"] < MAX_START:
         try:
             resp = _get(SEARCH_URL, params)
         except LinkedInError as e:
@@ -147,16 +154,22 @@ def search_jobs(
         cards = BeautifulSoup(resp.text, "html.parser").find_all("li")
         if not cards:
             break
+        page_ids = []
         for li in cards:
             try:
                 job = _parse_card(li)
             except (KeyError, AttributeError, TypeError):
                 bad_cards += 1
                 continue
-            if job and job.id not in jobs:
+            if not job:
+                continue
+            page_ids.append(job.id)
+            if job.id not in jobs:
                 job.found_at = now.isoformat(timespec="seconds")
                 jobs[job.id] = job
         params["start"] += len(cards)
+        if page_ids and known_ids.issuperset(page_ids):
+            break  # caught up with an earlier run
         time.sleep(PAGE_DELAY)
 
     if bad_cards:
