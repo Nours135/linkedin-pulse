@@ -38,6 +38,7 @@ def _tags(rec: dict) -> list[str]:
 def _row(rec: dict, track: dict) -> dict:
     row = {k: rec.get(k) for k in ROW_FIELDS}
     row["tags"] = _tags(rec) if "match" in rec else []
+    row["job_type"] = (rec.get("match") or {}).get("job_type")  # null when never scored
     row["has_resume"] = bool(rec.get("resume_pdf"))
     row["track_status"] = track.get("status", "new")
     row["notes"] = track.get("notes", "")

@@ -67,6 +67,23 @@
     <option value="all">All recorded</option>
   </select>
   <select id="trackFilter" title="My status"><option value="">Any status</option></select>
+  <select id="typeFilter" title="Job type">
+    <option value="">Any type</option>
+    <option value="ng">New grad</option>
+    <option value="intern">Intern (any)</option>
+    <option value="summer_intern">Summer intern</option>
+    <option value="part_time">Part-time</option>
+    <option value="other">Other</option>
+    <option value="none">Not classified</option>
+  </select>
+  <select id="ageFilter" title="Posted within">
+    <option value="">Posted any time</option>
+    <option value="1">Today</option>
+    <option value="3">Past 3 days</option>
+    <option value="7">Past week</option>
+    <option value="14">Past 2 weeks</option>
+    <option value="30">Past month</option>
+  </select>
   <input id="q" type="search" placeholder="Search title, company, notes…">
   <span class="counts" id="counts"></span>
 </header>
@@ -114,9 +131,12 @@ async function init() {
   if (!$("#cand").value) $("#cand").value = meta.candidates[0];
   $("#view").value = store.get("view", "sent");
   $("#trackFilter").value = store.get("track", "");
-  for (const id of ["cand", "view", "trackFilter"]) $("#" + id).onchange = () => {
+  $("#typeFilter").value = store.get("type", "");
+  $("#ageFilter").value = store.get("age", "");
+  for (const id of ["cand", "view", "trackFilter", "typeFilter", "ageFilter"]) $("#" + id).onchange = () => {
     store.set("cand", $("#cand").value); store.set("view", $("#view").value);
-    store.set("track", $("#trackFilter").value);
+    store.set("track", $("#trackFilter").value); store.set("type", $("#typeFilter").value);
+    store.set("age", $("#ageFilter").value);
     id === "cand" ? load() : render();
   };
   $("#q").oninput = render;
@@ -133,11 +153,26 @@ async function load() {
   openId = null; render();
 }
 
+// job_type values each type filter option accepts; "none" means the job was never scored
+const TYPE_FILTER = { ng: ["new_grad"], intern: ["intern", "summer_intern"], summer_intern: ["summer_intern"],
+                      part_time: ["part_time"], other: ["other"], none: [null] };
+
+// posted_at is a local YYYY-MM-DD date, so "past N days" compares dates, counting today as day 1
+function postedSince(days) {
+  const d = new Date();
+  d.setDate(d.getDate() - (days - 1));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function visible() {
   const view = $("#view").value, tf = $("#trackFilter").value, q = $("#q").value.trim().toLowerCase();
+  const types = TYPE_FILTER[$("#typeFilter").value];
+  const since = $("#ageFilter").value ? postedSince(+$("#ageFilter").value) : "";
   return jobs.filter(j =>
     (view === "all" || (view === "sent" ? j.status === "sent" : j.score != null)) &&
     (!tf || j.track_status === tf) &&
+    (!types || types.includes(j.job_type ?? null)) &&
+    (!since || (j.posted_at || "") >= since) &&
     (!q || [j.title, j.company, j.location, j.notes, ...j.tags].join(" ").toLowerCase().includes(q))
   ).sort((a, b) => {
     const x = a[sortKey] ?? "", y = b[sortKey] ?? "";
