@@ -6,6 +6,7 @@ config.yaml lists them under `candidates`, keyed by a short slug:
       profile: assets/candidates/john-wang   # resume.json + components/<key>.tex
       email_to: john.wang@example.com        # optional; falls back to EMAIL_TO, then SMTP_USER
       queries: ["Backend Engineer"]          # optional; overrides the generated search queries
+      intern: true                           # optional; every generated search query targets internships
       tags: {include: ["*NG"], exclude: []}  # optional; overrides match.tags key by key
 
 Everything a candidate produces lives under work/<slug>/ (jobs.json, keywords.json, outbox/,
@@ -28,6 +29,7 @@ class Candidate:
     profile_dir: Path          # holds resume.json and components/
     email_to: str = ""
     queries: tuple[str, ...] = ()
+    intern: bool = False       # generated search queries all contain "Intern"
     tags_include: tuple[str, ...] = ()   # tag filter, see matching.tag_rejected
     tags_exclude: tuple[str, ...] = ()
 
@@ -61,6 +63,7 @@ def load() -> list[Candidate]:
         tags = {**default_tags, **(cfg.get("tags") or {})}
         out.append(Candidate(name=name, profile_dir=profile, email_to=cfg.get("email_to") or "",
                              queries=tuple(cfg.get("queries") or ()),
+                             intern=bool(cfg.get("intern", False)),
                              tags_include=tuple(tags.get("include") or ()),
                              tags_exclude=tuple(tags.get("exclude") or ())))
     return out

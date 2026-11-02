@@ -8,6 +8,7 @@ candidates:              # one entry per person; each has their own profile, inb
     profile: assets/candidates/john-wang   # resume.json + components/<key>.tex
     email_to: john.wang@example.com        # falls back to EMAIL_TO, then SMTP_USER
     # queries: ["Backend Engineer"]        # optional; default: generated from the resume
+    # intern: true                         # optional; every generated query contains "Intern"
 
 llm:
   model: claude-haiku-5-5   # any Claude model id

@@ -62,9 +62,15 @@ Below is a candidate's resume: a catalog of experiences and projects plus a skil
    "distributed systems", "llm".
 3. exclude_title: list words that, when they appear in a job title, mean the role is clearly out
    of reach for this candidate's experience level or field, e.g. "staff", "principal", "director".
-
+{focus}
 Resume:
 {resume}
+"""
+
+# appended when the candidate sets `intern: true` in config.yaml
+INTERN_FOCUS = """
+The candidate wants internships only: every search query must contain "Intern", e.g.
+"Machine Learning Engineer Intern", and exclude_title must not contain "intern".
 """
 
 SCORE_PROMPT = """\
@@ -107,8 +113,9 @@ def generate_keywords(cand: Candidate) -> Keywords:
     hand-edited (read again every heartbeat); it is regenerated, losing hand edits, only when the
     resume text or KEYWORDS_PROMPT changes, or the file lacks a field."""
     path = cand.work_dir / "keywords.json"
-    # resume_sha also covers the prompt, so a prompt change regenerates the keywords
-    digest = hashlib.sha256((KEYWORDS_PROMPT + resume_text(cand)).encode()).hexdigest()[:16]
+    prompt = KEYWORDS_PROMPT.format(focus=INTERN_FOCUS if cand.intern else "", resume=resume_text(cand))
+    # resume_sha also covers the prompt, so a prompt change (incl. the intern flag) regenerates the keywords
+    digest = hashlib.sha256(prompt.encode()).hexdigest()[:16]
     if path.exists():
         saved = json.loads(path.read_text())
         missing = set(Keywords.model_fields) - saved.keys()
@@ -117,7 +124,7 @@ def generate_keywords(cand: Candidate) -> Keywords:
         why = f"missing {', '.join(sorted(missing))}" if missing else "resume or prompt changed"
         print(f"[keywords] {path.relative_to(ROOT)}: {why}; regenerating")
 
-    kw = llm.parse(KEYWORDS_PROMPT.format(resume=resume_text(cand)), Keywords, tag="match.keywords")
+    kw = llm.parse(prompt, Keywords, tag="match.keywords")
     kw.search_queries = [q.strip() for q in kw.search_queries if q.strip()]
     kw.include = [k.lower().strip() for k in kw.include if k.strip()]
     kw.exclude_title = [k.lower().strip() for k in kw.exclude_title if k.strip()]
