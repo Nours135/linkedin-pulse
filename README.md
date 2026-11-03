@@ -150,7 +150,7 @@ Jobs can also be tagged by whether the employer recently sponsored H-1Bs for CS 
 python -m pulse.h1b build
 ```
 
-Each job then gets `H1B` or `NoH1B`, based on certified H-1B LCAs for CS roles in the last `h1b.years` fiscal years. Add `NoH1B` to `match.tags.exclude` to skip those jobs before their JD is fetched. To check a company or see the top sponsors:
+Each job then gets a tag by its employer's certified H-1B LCAs for CS roles in the last `h1b.years` fiscal years: `NoH1B` (none), `H1BWeak` (1-2), `H1B` (3-19) or `H1BStrong` (20+); the cutoffs are `h1b.tiers`. Add `NoH1B` (and `H1BWeak`) to `match.tags.exclude` to skip those jobs before their JD is fetched. To check a company or see the top sponsors:
 
 ```bash
 python -m pulse.h1b lookup Google "Scale AI"

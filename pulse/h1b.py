@@ -12,8 +12,9 @@ https://www.dol.gov/agencies/eta/foreign-labor/performance into work/h1b/lca/, t
 
 Past fiscal years come as one file per quarter; the current year's file is cumulative year-to-date.
 build counts each case number once, so overlapping files do no harm, and keeps the last `h1b.years`
-fiscal years found. The job agent tags every job H1B if its company has CS LCAs in that window,
-NoH1B if not; without employers.json, jobs get no H-1B tag.
+fiscal years found. The job agent tags every job by its company's CS LCAs in that window:
+NoH1B (none), H1BWeak (fewer than h1b.tiers[0]), H1B, or H1BStrong (h1b.tiers[1] or more);
+without employers.json, jobs get no H-1B tag.
 """
 
 from __future__ import annotations
@@ -34,6 +35,8 @@ from pulse.config import settings, work_dir
 DATA_DIR = work_dir / "h1b"
 INDEX_PATH = DATA_DIR / "employers.json"
 YEARS = settings.get("h1b", {}).get("years", 2)
+# CS LCAs in the window at which a company counts as H1B and as H1BStrong; fewer than the first is H1BWeak
+TIERS = settings.get("h1b", {}).get("tiers", [3, 20])
 
 # "Certified - Withdrawn": certified, then withdrawn by the employer, who still meant to sponsor
 CERTIFIED = {"Certified", "Certified - Withdrawn"}
@@ -176,10 +179,14 @@ def lookup(company: str) -> dict | None:
 
 
 def tags(info: dict | None) -> list[str]:
-    """["H1B"] if the company filed certified H-1B LCAs for CS roles, ["NoH1B"] if not, [] without an index."""
+    """The company's sponsorship tier for CS roles, by its certified H-1B LCAs: ["NoH1B"] for none,
+    then ["H1BWeak"], ["H1B"] and ["H1BStrong"] at the TIERS cutoffs; [] without an index."""
     if info is None:
         return []
-    return ["H1B"] if info.get("cs") else ["NoH1B"]
+    cs = info.get("cs", 0)
+    if not cs:
+        return ["NoH1B"]
+    return ["H1BWeak"] if cs < TIERS[0] else ["H1B"] if cs < TIERS[1] else ["H1BStrong"]
 
 
 def summary(info: dict | None) -> str:

@@ -29,12 +29,13 @@ match:
   tags:                  # filter on the tags Claude assigns while scoring; a candidate's own `tags` overrides each key
     # job type: <yy>NG, <yy>Summer, <yy>Intern (yy = target year, omitted if unstated), PartTime
     # work authorization: CitizenOnly, NoSponsor
-    # employer H-1B sponsorship for CS roles (needs `python -m pulse.h1b build`): H1B, NoH1B
+    # employer H-1B sponsorship for CS roles (needs `python -m pulse.h1b build`): NoH1B, H1BWeak, H1B, H1BStrong
     include: []          # keep only jobs with a tag matching one of these, e.g. ["27NG", "*Summer"]; empty keeps all
     exclude: []          # drop jobs with a tag matching any of these, e.g. ["CitizenOnly", "NoSponsor"]
 
 h1b:
   years: 2               # fiscal years of DOL LCA data counted per company, the most recent in work/h1b/lca/
+  tiers: [3, 20]         # CS LCAs in those years for H1B and H1BStrong; 1 to tiers[0]-1 is H1BWeak, 0 is NoH1B
 
 retry:
   max_attempts: 3        # a job that errored is retried on later heartbeats up to this many times
