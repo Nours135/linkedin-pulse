@@ -1,4 +1,5 @@
-"""Job polling agent: age/title filter -> keyword pre-filter -> match scoring + tag filter -> resume agent -> email.
+"""Job polling agent: age/title filter -> H-1B sponsorship tag filter -> keyword pre-filter -> match scoring
++ tag filter -> resume agent -> email.
 Fixed pipeline; the LLM is only used for keyword generation and match scoring.
 Every outcome is recorded in pulse.store."""
 
@@ -8,7 +9,7 @@ from datetime import date, timedelta
 
 from tqdm import tqdm
 
-from pulse import store
+from pulse import h1b, store
 from pulse.agents import resume_agent
 from pulse.candidates import Candidate
 from pulse.config import settings
@@ -23,8 +24,9 @@ RESUME_SUMMARY = ("selection", "pages", "fill", "layout")
 def _done(cand: Candidate, job: Job, status: str, **info) -> JobResult:
     store.record(cand, job, status, **info)
     shown = {k: info[k] for k in ("reason", "score", "sent_to", "error") if k in info}
-    if "match" in info:
-        shown["tags"] = matching.Match.model_validate(info["match"]).tags()
+    tags = matching.Match.model_validate(info["match"]).tags() if "match" in info else []
+    if tags := tags + h1b.tags(info.get("h1b")):
+        shown["tags"] = tags
     if "resume_pdf" in info:
         shown["pdf"] = info["resume_pdf"]
     return JobResult(candidate=cand.name, job_id=job.id, title=job.title, company=job.company,
@@ -65,20 +67,27 @@ def process_job(cand: Candidate, job: Job, kw: matching.Keywords) -> JobResult:
     if matching.title_excluded(job.title, kw):
         return _done(cand, job, "filtered", reason="title")
 
+    # the company's H-1B sponsorship is a free local lookup, so an excluded H-1B tag drops the job before any fetch
+    sponsor = h1b.lookup(job.company)
+    sponsor_tags = h1b.tags(sponsor)
+    if why := matching.tag_rejected(sponsor_tags, (), cand.tags_exclude):
+        return _done(cand, job, "filtered", reason=why, h1b=sponsor)
+
     fetch_job_detail(job)
     hits = matching.keyword_hits(job.description, kw)
     if len(hits) < cfg["min_keyword_hits"]:
-        return _done(cand, job, "filtered", reason=f"{len(hits)} keyword hits", hits=hits)
+        return _done(cand, job, "filtered", reason=f"{len(hits)} keyword hits", hits=hits, h1b=sponsor)
 
     match = matching.score_match(job, cand)
-    if why := matching.tag_rejected(match.tags(), cand.tags_include, cand.tags_exclude):
-        return _done(cand, job, "filtered", reason=why, hits=hits, score=match.score, match=match.model_dump())
+    if why := matching.tag_rejected(match.tags() + sponsor_tags, cand.tags_include, cand.tags_exclude):
+        return _done(cand, job, "filtered", reason=why, hits=hits, score=match.score, match=match.model_dump(),
+                     h1b=sponsor)
     if match.score < cfg["min_score"]:
-        return _done(cand, job, "low_score", hits=hits, score=match.score, match=match.model_dump())
+        return _done(cand, job, "low_score", hits=hits, score=match.score, match=match.model_dump(), h1b=sponsor)
 
     resume = _build_resume(cand, job, match)
-    sent_to = email.send(email.compose(cand, job, match, resume), cand, job.id)
-    return _done(cand, job, "sent", hits=hits, score=match.score, match=match.model_dump(),
+    sent_to = email.send(email.compose(cand, job, match, resume, sponsor), cand, job.id)
+    return _done(cand, job, "sent", hits=hits, score=match.score, match=match.model_dump(), h1b=sponsor,
                  resume_pdf=resume.get("pdf"),
                  resume={k: resume.get(k) for k in RESUME_SUMMARY},
                  error=resume.get("error"), sent_to=sent_to)

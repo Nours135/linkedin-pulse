@@ -231,7 +231,8 @@ async function showDetail(id) {
   cell.innerHTML = `<div class="detail-grid">
     <div><b>Why ${rec.score ?? ""}</b>${list(m.reasons)}
       <b>Matched</b>${list(m.matched)}<b>Missing</b>${list(m.missing)}
-      ${m.work_auth_quote ? `<b>Work auth</b><p>${esc(m.work_auth_quote)}</p>` : ""}</div>
+      ${m.work_auth_quote ? `<b>Work auth</b><p>${esc(m.work_auth_quote)}</p>` : ""}
+      ${rec.h1b_summary ? `<b>Sponsorship history</b><p>${esc(rec.h1b_summary)}</p>` : ""}</div>
     <div><b>Description</b><div class="desc">${esc(rec.description || "(not fetched)")}</div></div></div>`;
 }
 

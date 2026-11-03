@@ -11,6 +11,7 @@ from pathlib import Path
 
 from tqdm import tqdm
 
+from pulse import h1b
 from pulse.candidates import Candidate
 from pulse.config import settings
 from pulse.tools.linkedin import Job
@@ -24,8 +25,9 @@ def _one_line(s: str) -> str:
     return " ".join(s.split())
 
 
-def compose(cand: Candidate, job: Job, match: Match, resume: dict) -> EmailMessage:
-    """`resume` is the resume agent's result: {"ok", "pdf", "error", ...}. The candidate's slug is
+def compose(cand: Candidate, job: Job, match: Match, resume: dict, sponsor: dict | None = None) -> EmailMessage:
+    """`resume` is the resume agent's result: {"ok", "pdf", "error", ...}; `sponsor` is the company's
+    h1b.lookup, or None without an H-1B index. The candidate's slug is
     in the subject and an X-Pulse-Candidate header, so a shared inbox can filter by candidate."""
     user = os.getenv("SMTP_USER", "")
     msg = EmailMessage()
@@ -37,8 +39,9 @@ def compose(cand: Candidate, job: Job, match: Match, resume: dict) -> EmailMessa
     msg["X-Pulse-Candidate"] = cand.name
 
     lines = [
-        f"Tags: {', '.join(match.tags()) or '-'}",
+        f"Tags: {', '.join(match.tags() + h1b.tags(sponsor)) or '-'}",
         *([f'Work authorization: "{match.work_auth_quote}"'] if match.work_auth_quote else []),
+        *([h1b.summary(sponsor)] if sponsor else []),
         "",
         f"Candidate: {cand.name}",
         "",

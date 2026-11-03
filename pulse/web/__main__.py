@@ -17,7 +17,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from pulse import candidates, store, tracking
+from pulse import candidates, h1b, store, tracking
 from pulse.tools import matching
 
 INDEX = Path(__file__).with_name("index.html")
@@ -27,17 +27,23 @@ ROW_FIELDS = ("id", "title", "company", "location", "posted_at", "url", "stage",
               "reason", "score", "recorded_at", "error")
 
 
+def _h1b(rec: dict) -> dict | None:
+    """The H-1B lookup stored with the job, or a live one for records from before the lookup existed."""
+    return rec["h1b"] if "h1b" in rec else h1b.lookup(rec.get("company", ""))
+
+
 def _tags(rec: dict) -> list[str]:
-    """Tags are derived from the stored match; records scored before tagging existed have none."""
+    """Tags are derived from the stored match and the H-1B lookup; records scored before tagging existed have no match tags."""
     try:
-        return matching.Match.model_validate(rec["match"]).tags()
+        tags = matching.Match.model_validate(rec["match"]).tags() if "match" in rec else []
     except Exception:
-        return []
+        tags = []
+    return tags + h1b.tags(_h1b(rec))
 
 
 def _row(rec: dict, track: dict) -> dict:
     row = {k: rec.get(k) for k in ROW_FIELDS}
-    row["tags"] = _tags(rec) if "match" in rec else []
+    row["tags"] = _tags(rec)
     row["job_type"] = (rec.get("match") or {}).get("job_type")  # null when never scored
     row["has_resume"] = bool(rec.get("resume_pdf"))
     row["track_status"] = track.get("status", "new")
@@ -52,7 +58,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # the browser gave up on the request (reload, navigation); nothing to send it to
 
     def _json(self, obj, code: int = 200) -> None:
         self._send(code, json.dumps(obj, ensure_ascii=False).encode(), "application/json; charset=utf-8")
@@ -78,7 +87,7 @@ class Handler(BaseHTTPRequestHandler):
                 rec = store.load(cand).get(q.get("id", ""))
                 if rec is None:
                     return self._error(404, "unknown job")
-                self._json({**rec, "tags": _tags(rec) if "match" in rec else []})
+                self._json({**rec, "tags": _tags(rec), "h1b_summary": h1b.summary(_h1b(rec))})
             elif url.path == "/resume":
                 cand = candidates.get(q.get("candidate", ""))
                 rec = store.load(cand).get(q.get("id", "")) or {}

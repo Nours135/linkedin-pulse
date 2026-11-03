@@ -142,6 +142,24 @@ match:
     exclude: ["CitizenOnly"]      # drop jobs with any of these tags
 ```
 
+### H-1B sponsorship
+
+Jobs can also be tagged by whether the employer recently sponsored H-1Bs for CS roles, using the Department of Labor's LCA disclosure data. Download the `LCA_Disclosure_Data_FY*.xlsx` files from the [DOL performance data page](https://www.dol.gov/agencies/eta/foreign-labor/performance) into `work/h1b/lca/` (scripted downloads are blocked), then build the index:
+
+```bash
+python -m pulse.h1b build
+```
+
+Each job then gets `H1B` or `NoH1B`, based on certified H-1B LCAs for CS roles in the last `h1b.years` fiscal years. Add `NoH1B` to `match.tags.exclude` to skip those jobs before their JD is fetched. To check a company or see the top sponsors:
+
+```bash
+python -m pulse.h1b lookup Google "Scale AI"
+```
+
+```bash
+python -m pulse.h1b top -n 50
+```
+
 ### Web UI
 
 ```bash
